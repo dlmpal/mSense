@@ -1,0 +1,11 @@
+build/
+dist/
+msense.egg-info/
+
+*.json
+*.hdf5
+*.pyc
+*.png
+*.pdf
+*.tex
+*.tikz
