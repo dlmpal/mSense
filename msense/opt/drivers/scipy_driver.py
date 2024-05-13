@@ -7,6 +7,7 @@ from msense.core.constants import FLOAT_DTYPE
 from msense.core.variable import Variable
 from msense.core.discipline import Discipline
 from msense.utils.array_and_dict_utils import array_to_dict_1d, dict_to_array_1d
+from msense.utils.array_and_dict_utils import array_to_dict_2d, dict_to_array_2d
 from msense.utils.array_and_dict_utils import normalize_dict_1d, denormalize_dict_1d
 from msense.utils.array_and_dict_utils import get_variable_list_size
 from msense.opt.drivers.driver import Driver
@@ -57,8 +58,8 @@ class ScipyDriver(Driver):
 
         def jac(x: ndarray):
             x = array_to_dict_1d(self.disc.input_vars, x)
-            jac = self.disc.differentiate(x)[var.name]
-            jac = dict_to_array_1d(self.disc.input_vars, jac)
+            jac = self.disc.differentiate(x)
+            jac = dict_to_array_2d(self.disc.input_vars, [var], jac)
             return jac
 
         return func, jac
@@ -69,7 +70,7 @@ class ScipyDriver(Driver):
             func,  jac = self._wrap_func_and_jac(con)
             lb, ub, keep_feasible = con.get_bounds_as_array(use_norm)
             cons.append(NonlinearConstraint(
-                func, lb, ub, jac, keep_feasible=keep_feasible))
+                func, lb, ub, jac, keep_feasible=con.keep_feasible))  # TODO: keep_feasible should be an array, but scipy throws error
 
         return cons
 
