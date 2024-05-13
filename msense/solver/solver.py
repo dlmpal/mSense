@@ -114,7 +114,7 @@ class Solver:
         self.history.append(metric)
 
         # Check for convergence
-        if metric <= self.tol:
+        if metric <= self.tol and self.iter > 0:
             self.status = self.SolverStatus.CONVERGED
 
         # Print iteration info
