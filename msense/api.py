@@ -34,6 +34,7 @@ from msense.opt.problems.factory import create_opt_problem
 # Drivers
 from msense.opt.drivers.driver import Driver
 from msense.opt.drivers.scipy_driver import ScipyDriver
+from msense.opt.drivers.ipopt_driver import IpoptDriver
 from msense.opt.drivers.factory import DriverType
 from msense.opt.drivers.factory import create_driver
 
