@@ -1,86 +1,71 @@
-from typing import Dict, List, Tuple, Callable
+from typing import Dict
 
-from numpy import ndarray, zeros
+from numpy import ndarray
 from scipy.optimize import NonlinearConstraint, Bounds, minimize, OptimizeResult
 
-from msense.core.constants import FLOAT_DTYPE
-from msense.core.variable import Variable
 from msense.core.discipline import Discipline
+from msense.utils.array_and_dict_utils import concatenate_variable_bounds
 from msense.utils.array_and_dict_utils import array_to_dict_1d, dict_to_array_1d
-from msense.utils.array_and_dict_utils import array_to_dict_2d, dict_to_array_2d
 from msense.utils.array_and_dict_utils import normalize_dict_1d, denormalize_dict_1d
-from msense.utils.array_and_dict_utils import get_variable_list_size
+from msense.utils.array_and_dict_utils import dict_to_array_2d
 from msense.opt.drivers.driver import Driver
-
-ScipyFun = Callable[[ndarray], ndarray]
 
 
 class ScipyDriver(Driver):
     """
-    This Driver subclass implements the functionality needed to solve an OptProblem using SciPy optimizers.  
+    This Driver subclass implements the functionality needed to solve an OptProblem using SciPy optimizers.
     """
 
-    def __init__(self, problem: Discipline, method: str = "SLSQP", tol: float = 1e-6, **options):
-        super().__init__(problem)
+    def __init__(self, problem: Discipline, method="SLSQP", **kwargs):
+        super().__init__(problem, **kwargs)
         self.method = method
-        self.tol = tol
-        self.options = options
+        self.options = {}
 
-    def _wrap_bounds(self, use_norm: bool):
-        n_inputs = get_variable_list_size(self.disc.input_vars)
-        lb_arr = zeros(n_inputs, FLOAT_DTYPE)
-        ub_arr = zeros(n_inputs, FLOAT_DTYPE)
-        keep_feasible_arr = zeros(n_inputs, bool)
-
-        idx = 0
-        for var in self.disc.input_vars:
-            lb, ub, keep_feasible = var.get_bounds_as_array(use_norm)
-            lb_arr[idx: idx + var.size] = lb
-            ub_arr[idx: idx + var.size] = ub
-            keep_feasible_arr[idx: idx + var.size] = keep_feasible
-            idx += var.size
-
-        return Bounds(lb_arr, ub_arr, keep_feasible_arr)
-
-    def _wrap_func_and_jac(self, var: Variable, scalar_func: bool = False) -> Tuple[ScipyFun, ScipyFun]:
-        def func(x: ndarray):
+    def _wrap_objective(self):
+        def func(x: ndarray) -> float:
             x = array_to_dict_1d(self.disc.input_vars, x)
-            value = self.disc.eval(x)[var.name]
-
-            if scalar_func:
-                value = value[0]
-
-            if self.iter == 0 and var.name == self.disc.output_vars[0].name:
+            obj = self.disc.eval(x)[self.disc.output_vars[0].name]
+            if self.disc.iter == 0:
                 self.callback()
-                self.iter += 1
+            return obj
+        return func
 
-            return value
+    def _wrap_gradient(self):
+        def gradient(x: ndarray) -> ndarray:
+            x = array_to_dict_1d(self.disc.input_vars, x)
+            grad = self.disc.differentiate(x)
+            grad = dict_to_array_2d(self.disc.input_vars,
+                                    [self.disc.output_vars[0]], grad, flatten=True)
+            return grad
+        return gradient
 
-        def jac(x: ndarray):
+    def _wrap_constraints(self, use_norm: bool) -> NonlinearConstraint:
+        def constraints(x: ndarray) -> ndarray:
+            x = array_to_dict_1d(self.disc.input_vars, x)
+            cons = self.disc.eval(x)
+            cons = dict_to_array_1d(self.disc.output_vars[1:], cons)
+            return cons
+
+        def jacobian(x: ndarray) -> ndarray:
             x = array_to_dict_1d(self.disc.input_vars, x)
             jac = self.disc.differentiate(x)
-            jac = dict_to_array_2d(self.disc.input_vars, [var], jac)
+            jac = dict_to_array_2d(self.disc.input_vars,
+                                   self.disc.output_vars[1:], jac)
             return jac
 
-        return func, jac
-
-    def _wrap_constraints(self, use_norm: bool) -> List[NonlinearConstraint]:
-        cons = []
-        for con in self.disc.output_vars[1:]:
-            func,  jac = self._wrap_func_and_jac(con)
-            lb, ub, keep_feasible = con.get_bounds_as_array(use_norm)
-            cons.append(NonlinearConstraint(
-                func, lb, ub, jac, keep_feasible=con.keep_feasible))  # TODO: keep_feasible should be an array, but scipy throws error
-
-        return cons
+        cl, cu, _ = concatenate_variable_bounds(
+            self.disc.output_vars[1:], use_norm)
+        return NonlinearConstraint(constraints, cl, cu, jacobian)
 
     def _wrap_callback(self):
-
         def callback(x: ndarray):
             self.callback()
-            self.iter += 1
-
         return callback
+
+    def _wrap_bounds(self, use_norm):
+        lb, ub, kf = concatenate_variable_bounds(
+            self.disc.input_vars, use_norm)
+        return Bounds(lb, ub, kf)
 
     def _convert_result(self, _result: OptimizeResult) -> Dict[str, any]:
         result = {}
@@ -100,9 +85,6 @@ class ScipyDriver(Driver):
         return result
 
     def solve(self, input_values: Dict[str, ndarray], use_norm: bool) -> Dict[str, any]:
-        # Reset iteration number
-        self.iter = 0
-
         # Normalize the input values if needed,
         # and covert to 1d numpy array
         if use_norm:
@@ -111,18 +93,15 @@ class ScipyDriver(Driver):
         input_values = dict_to_array_1d(
             self.disc.input_vars, input_values)
 
-        # Wrap the objective function, its jacobian,
-        # the bounds, the constraints and the callback
-        fun, jac = self._wrap_func_and_jac(self.disc.output_vars[0], True)
-        bounds = self._wrap_bounds(use_norm)
-        cons = self._wrap_constraints(use_norm)
-        callback = self._wrap_callback()
+        # Solve the optimization problem using SciPy
+        self.options["maxiter"] = self.n_iter_max
+        result = minimize(fun=self._wrap_objective(),
+                          x0=input_values,
+                          jac=self._wrap_gradient(),
+                          bounds=self._wrap_bounds(use_norm),
+                          constraints=self._wrap_constraints(use_norm),
+                          callback=self._wrap_callback(),
+                          method=self.method, tol=self.tol,
+                          options=self.options)
 
-        # Solve the optimization problem using scipy minimize
-        result = minimize(fun=fun, x0=input_values, jac=jac,
-                          bounds=bounds, constraints=cons, callback=callback,
-                          method=self.method, tol=self.tol, options=self.options)
-
-        result = self._convert_result(result)
-
-        return result
+        return self._convert_result(result)
