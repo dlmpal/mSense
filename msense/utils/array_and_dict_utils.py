@@ -1,11 +1,8 @@
-from typing import Dict, List
-from os.path import join
+from typing import Dict, List, Tuple
 
 from numpy import zeros, ndarray
-from numpy import isinf, isneginf
 from numpy import atleast_1d, atleast_2d
 from numpy.linalg import norm
-import matplotlib.pyplot as plt
 
 from msense.core.constants import FLOAT_DTYPE
 from msense.core.variable import Variable
@@ -16,6 +13,26 @@ def get_variable_list_size(vars: List[Variable]) -> int:
     for var in vars:
         size += var.size
     return size
+
+
+def concatenate_variable_bounds(vars: List[Variable], use_normalization: bool = False) -> Tuple[ndarray, ndarray, ndarray]:
+    """
+    Get the bounds of a list of variables as a contiguous array.
+    """
+    n_vars = get_variable_list_size(vars)
+    lb_arr = zeros(n_vars, FLOAT_DTYPE)
+    ub_arr = zeros(n_vars, FLOAT_DTYPE)
+    keep_feasible_arr = zeros(n_vars, bool)
+
+    idx = 0
+    for var in vars:
+        lb, ub, keep_feasible = var.get_bounds_as_array(use_normalization)
+        lb_arr[idx: idx + var.size] = lb
+        ub_arr[idx: idx + var.size] = ub
+        keep_feasible_arr[idx: idx + var.size] = keep_feasible
+        idx += var.size
+
+    return lb_arr, ub_arr, keep_feasible_arr
 
 
 def verify_dict_1d(vars: List[Variable], values_dict: Dict[str, ndarray], dtype=FLOAT_DTYPE) -> Dict[str, ndarray]:
