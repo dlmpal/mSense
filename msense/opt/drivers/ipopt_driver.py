@@ -1,14 +1,23 @@
 from typing import Dict
+import logging
 
 from numpy import ndarray
-from cyipopt import Problem as IpoptProblem
 
-from msense.core.discipline import Discipline
-from msense.utils.array_and_dict_utils import concatenate_variable_bounds
-from msense.utils.array_and_dict_utils import array_to_dict_1d, dict_to_array_1d
-from msense.utils.array_and_dict_utils import normalize_dict_1d
-from msense.utils.array_and_dict_utils import dict_to_array_2d
 from msense.opt.drivers.driver import Driver
+from msense.utils.array_and_dict_utils import dict_to_array_2d
+from msense.utils.array_and_dict_utils import normalize_dict_1d
+from msense.utils.array_and_dict_utils import array_to_dict_1d, dict_to_array_1d
+from msense.utils.array_and_dict_utils import concatenate_variable_bounds
+from msense.core.discipline import Discipline
+
+
+MSENSE_HAS_IPOPT = True
+try:
+    from cyipopt import Problem as IpoptProblem
+except ImportError:
+    MSENSE_HAS_IPOPT = False
+
+logger = logging.getLogger(__name__)
 
 
 class IpoptDriver(Driver):
@@ -54,6 +63,10 @@ class IpoptDriver(Driver):
             self.callback()
 
     def __init__(self, discipline: Discipline, **kwargs):
+        if MSENSE_HAS_IPOPT is False:
+            logger.error("Package cyipopt is not available.")
+            raise ImportError()
+
         super().__init__(discipline, **kwargs)
         self.options = {"print_level": 0}
 
