@@ -5,7 +5,7 @@ from numpy import ndarray
 
 from msense.opt.drivers.driver import Driver
 from msense.utils.array_and_dict_utils import dict_to_array_2d
-from msense.utils.array_and_dict_utils import normalize_dict_1d
+from msense.utils.array_and_dict_utils import normalize_dict_1d, denormalize_dict_1d
 from msense.utils.array_and_dict_utils import array_to_dict_1d, dict_to_array_1d
 from msense.utils.array_and_dict_utils import concatenate_variable_bounds
 from msense.core.discipline import Discipline
@@ -33,6 +33,7 @@ class IpoptDriver(Driver):
         def __init__(self, discipline: Discipline, callback) -> None:
             self.disc = discipline
             self.callback = callback
+            self.iter = 0  # Required since Ipopt doesnt return the number of iterations at exit
 
         def objective(self, x: ndarray) -> float:
             x = array_to_dict_1d(self.disc.input_vars, x)
@@ -61,6 +62,7 @@ class IpoptDriver(Driver):
 
         def intermediate(self, *args) -> None:
             self.callback()
+            self.iter += 1
 
     def __init__(self, discipline: Discipline, **kwargs):
         if MSENSE_HAS_IPOPT is False:
@@ -70,8 +72,23 @@ class IpoptDriver(Driver):
         super().__init__(discipline, **kwargs)
         self.options = {"print_level": 0}
 
-    def _convert_result(self, _result) -> Dict[str, any]:
-        pass
+    def _convert_result(self, ipopt_result: Dict[str, any]) -> Dict[str, any]:
+        result = {}
+
+        result["inputs"] = array_to_dict_1d(
+            self.disc.input_vars, ipopt_result["x"])
+        if self.disc.use_norm:
+            result["inputs"] = denormalize_dict_1d(
+                self.disc.input_vars, result["inputs"])
+
+        result["objective"] = ipopt_result["obj_val"]
+        result["jac"] = array_to_dict_1d(
+            self.disc.input_vars, ipopt_result["g"])
+        result["iter"] = 0
+        result["message"] = ipopt_result["status_msg"]
+        result["converged"] = ipopt_result["status"]
+
+        return result
 
     def solve(self, input_values: Dict[str, ndarray], use_norm: bool):
         # Normalize the input values if needed,
@@ -88,9 +105,10 @@ class IpoptDriver(Driver):
             self.disc.output_vars[1:], use_norm)
 
         # Create the Ipopt optimization problem
+        wrapped_disc = self._WrappedDiscipline(self.disc, self.callback)
         ipopt_nlp = IpoptProblem(
             n=len(lb), m=len(cl),
-            problem_obj=self._WrappedDiscipline(self.disc, self.callback),
+            problem_obj=wrapped_disc,
             lb=lb, ub=ub, cl=cl, cu=cu)
 
         # Add the specified options
@@ -100,6 +118,7 @@ class IpoptDriver(Driver):
             ipopt_nlp.add_option(key, val)
 
         # Solve the optimization problem using Ipopt
-        result = ipopt_nlp.solve(input_values)
+        _, result = ipopt_nlp.solve(input_values)
+        result["iter"] = wrapped_disc.iter
 
         return self._convert_result(result)
