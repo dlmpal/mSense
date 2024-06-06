@@ -58,29 +58,43 @@ class ScipyDriver(Driver):
         return NonlinearConstraint(constraints, cl, cu, jacobian)
 
     def _wrap_callback(self):
-        def callback(x: ndarray):
-            self.callback()
-        return callback
+        if self.method == "trust-constr":
+            def callback(x, result):
+                self.callback()
+            return callback
+        elif self.method in ["TNC", "SLSQP", "COBYLA"]:
+            def callback(x):
+                self.callback()
+            return callback
+        else:
+            def callback(result):
+                self.callback()
+            return callback
 
     def _wrap_bounds(self, use_norm):
         lb, ub, kf = concatenate_variable_bounds(
             self.disc.input_vars, use_norm)
         return Bounds(lb, ub, kf)
 
-    def _convert_result(self, _result: OptimizeResult) -> Dict[str, any]:
+    def _convert_result(self, scipy_result: OptimizeResult) -> Dict[str, any]:
         result = {}
 
         result["inputs"] = array_to_dict_1d(
-            self.disc.input_vars, _result.x)
+            self.disc.input_vars, scipy_result.x)
         if self.disc.use_norm:
             result["inputs"] = denormalize_dict_1d(
                 self.disc.input_vars, result["inputs"])
 
-        result["objective"] = _result.fun
-        result["jac"] = array_to_dict_1d(self.disc.input_vars, _result.jac)
-        result["iter"] = _result.nit
-        result["message"] = _result.message
-        result["converged"] = _result.success
+        result["objective"] = scipy_result.fun
+        if "jac" in scipy_result:
+            result["jac"] = array_to_dict_1d(
+                self.disc.input_vars, scipy_result.jac)
+
+        if "nit" in scipy_result:
+            result["iter"] = scipy_result.nit
+
+        result["message"] = scipy_result.message
+        result["converged"] = scipy_result.success
 
         return result
 
