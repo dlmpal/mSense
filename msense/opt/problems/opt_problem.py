@@ -111,7 +111,7 @@ class OptProblem(Discipline):
 
         self.iter += 1
 
-    def solve(self, design_vec: Dict[str, ndarray]):
+    def solve(self, design_vec: Dict[str, ndarray]) -> Dict[str, any]:
         # Reset history and iteration number
         self.history, self.iter = [], 0
 
