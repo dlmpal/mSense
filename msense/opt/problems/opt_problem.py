@@ -62,7 +62,7 @@ class OptProblem(Discipline):
 
     def eval(self, design_vec: Dict[str, ndarray]):
         # Deormalize design vector, if needed
-        if self.use_norm:
+        if self.use_norm and self._approximating_jac is False:
             design_vec = denormalize_dict_1d(self.design_vars, design_vec)
 
         # Evaluate objective and constraints
