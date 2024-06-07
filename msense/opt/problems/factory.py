@@ -8,12 +8,14 @@ from msense.opt.problems.opt_problem import OptProblem
 from msense.opt.problems.single_discipline import SingleDiscipline
 from msense.opt.problems.idf import IDF
 from msense.opt.problems.mdf import MDF
+from msense.opt.problems.co import CO
 
 
 class OptProblemType(str, Enum):
     SignleDiscipline = "SingleDiscipline"
     MDF = "MDF"
     IDF = "IDF"
+    CO = "CO"
 
 
 def create_opt_problem(type: OptProblemType, disciplines: List[Discipline],
@@ -32,5 +34,7 @@ def create_opt_problem(type: OptProblemType, disciplines: List[Discipline],
         return MDF(disciplines, **kwargs)
     elif type == OptProblemType.IDF:
         return IDF(disciplines, **kwargs)
+    elif type == OptProblemType.CO:
+        return CO(disciplines, **kwargs)
     else:
         raise ValueError(f"OptProblemType {type} is not available.")
