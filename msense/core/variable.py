@@ -12,7 +12,7 @@ class Variable:
     size: int = field(default=1, hash=False)
     lb: float = field(default=-inf, hash=False)
     ub: float = field(default=inf, hash=False)
-    keep_feasible: bool = field(default=True, hash=False)
+    keep_feasible: bool = field(default=False, hash=False)
 
     def get_bounds_as_array(self, use_normalization: bool = False):
         lb = self.lb * ones(self.size, FLOAT_DTYPE)
