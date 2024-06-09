@@ -17,42 +17,37 @@ class IDF(OptProblem):
     def __init__(self, disciplines: List[Discipline], **kwargs) -> None:
         self.disciplines = disciplines
 
-        # Get the coupling variables
+        # Get the coupling variables and add them
+        # to the design variables
         self.coupling_vars = get_couplings(self.disciplines)
+        kwargs["design_vars"] += self.coupling_vars
 
-        # Create target variables
-        self.target_vars = [Variable(c.name + "_t", c.size, c.lb, c.ub)
-                            for c in self.coupling_vars]
-        kwargs["design_vars"] += self.target_vars
-
-        # Create consistency constraints
-        self.target_cons = [
-            Variable(c.name + "_tc", c.size, 0, 0, False) for c in self.coupling_vars]
+        # Create feasibility/consistency constraints
+        self.feasibility_constraints = [
+            Variable(var.name + "_con", var.size, 0, 0) for var in self.coupling_vars]
         if kwargs["constraints"] is None:
-            kwargs["constraints"] = self.target_cons
+            kwargs["constraints"] = self.feasibility_constraints
         else:
-            kwargs["constraints"] += self.target_cons
+            kwargs["constraints"] += self.feasibility_constraints
 
         super().__init__(**kwargs)
 
     def _eval(self):
-        # Evaluate the disciplines with the target variables values
+        # Evaluate the disciplines
         outputs = {}
         for disc in self.disciplines:
             inputs = {}
             for var in disc.input_vars:
                 if var.name in self._values:
                     inputs[var.name] = self._values[var.name]
-                elif var.name + "_t" in self._values:
-                    inputs[var.name] = self._values[var.name + "_t"]
             outputs.update(disc.eval(inputs))
 
-        # Evaluate consistency constraints
+        # Evaluate feasibility constraints
         for var in self.coupling_vars:
-            outputs[var.name + "_tc"] = self._values[var.name +
-                                                     "_t"] - outputs[var.name]
+            outputs[var.name + "_con"] = self._values[var.name] - \
+                outputs[var.name]
 
-        # Grab the values of the constraints and the objective
+        # Set the values of the constraints and the objective
         for var in self.output_vars:
             self._values[var.name] = outputs[var.name]
 
@@ -62,25 +57,19 @@ class IDF(OptProblem):
         for disc in self.disciplines:
             partials.update(disc.differentiate())
 
-        for out_var in self.doutput_vars:
-            if out_var in self.target_cons:
-                # Consistency constraint derivatives
-                for in_var in self.dinput_vars:
-                    if in_var in self.target_vars:
-                        if out_var.name[:-1] == in_var.name:
-                            self._jac[out_var.name][in_var.name] = ones((out_var.size, out_var.size),
-                                                                        dtype=FLOAT_DTYPE)
-                        elif in_var.name[:-2] in partials[out_var.name[:-3]]:
-                            self._jac[out_var.name][in_var.name] = -partials[out_var.name[:-3]
-                                                                             ][in_var.name[:-2]]
-                    elif in_var.name in partials[out_var.name[:-3]]:
-                        self._jac[out_var.name][in_var.name] = - \
-                            partials[out_var.name[:-3]][in_var.name]
+        # Feasibility constraint jacobians
+        for out_var in self.coupling_vars:
+            for in_var in self.design_vars:
+                if in_var.name == out_var.name:
+                    self._jac[out_var.name + "_con"][out_var.name] = ones(
+                        (out_var.size, out_var.size), dtype=FLOAT_DTYPE)
+                elif in_var.name in partials[out_var.name]:
+                    self._jac[out_var.name + "_con"][in_var.name] = - \
+                        partials[out_var.name][in_var.name]
 
-            else:
-                # Objective and other constraint derivatives
-                for in_var in self.dinput_vars:
-                    if in_var in self.target_vars and in_var.name[:-2] in partials[out_var.name]:
-                        self._jac[out_var.name][in_var.name] = partials[out_var.name][in_var.name[:-2]]
+        # Objective and constraint jacobians
+        for out_var in self.output_vars:
+            if out_var.name in partials:
+                for in_var in self.design_vars:
                     if in_var.name in partials[out_var.name]:
                         self._jac[out_var.name][in_var.name] = partials[out_var.name][in_var.name]
