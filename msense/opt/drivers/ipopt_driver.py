@@ -37,8 +37,8 @@ class IpoptDriver(Driver):
 
         def objective(self, x: ndarray) -> float:
             x = array_to_dict_1d(self.disc.input_vars, x)
-            value = self.disc.eval(x)[self.disc.output_vars[0].name]
-            return value
+            obj_value = self.disc.eval(x)[self.disc.output_vars[0].name]
+            return obj_value
 
         def gradient(self, x: ndarray) -> ndarray:
             x = array_to_dict_1d(self.disc.input_vars, x)
@@ -49,16 +49,17 @@ class IpoptDriver(Driver):
 
         def constraints(self, x: ndarray) -> ndarray:
             x = array_to_dict_1d(self.disc.input_vars, x)
-            cons = self.disc.eval(x)
-            cons = dict_to_array_1d(self.disc.output_vars[1:], cons)
-            return cons
+            con_values = self.disc.eval(x)
+            con_values = dict_to_array_1d(
+                self.disc.output_vars[1:], con_values)
+            return con_values
 
         def jacobian(self, x: ndarray) -> ndarray:
             x = array_to_dict_1d(self.disc.input_vars, x)
-            jac = self.disc.differentiate(x)
-            jac = dict_to_array_2d(self.disc.input_vars,
-                                   self.disc.output_vars[1:], jac)
-            return jac
+            con_jac = self.disc.differentiate(x)
+            con_jac = dict_to_array_2d(self.disc.input_vars,
+                                       self.disc.output_vars[1:], con_jac)
+            return con_jac
 
         def intermediate(self, *args) -> None:
             self.callback()
