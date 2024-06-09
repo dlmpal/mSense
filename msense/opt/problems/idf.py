@@ -1,8 +1,7 @@
 from typing import List
 
-from numpy import ones
+from numpy.linalg import norm
 
-from msense.core.constants import FLOAT_DTYPE
 from msense.core.variable import Variable
 from msense.core.discipline import Discipline
 from msense.utils.graph_utils import get_couplings
@@ -14,7 +13,7 @@ class IDF(OptProblem):
     The Individual Discipline Feasible (IDF) approach for MDO problems.
     """
 
-    def __init__(self, disciplines: List[Discipline], **kwargs) -> None:
+    def __init__(self, disciplines: List[Discipline], feasibility_tol: float = 1e-6, **kwargs) -> None:
         self.disciplines = disciplines
 
         # Get the coupling variables and add them
@@ -24,7 +23,7 @@ class IDF(OptProblem):
 
         # Create feasibility/consistency constraints
         self.feasibility_constraints = [
-            Variable(var.name + "_con", var.size, 0, 0) for var in self.coupling_vars]
+            Variable(var.name + "_con", lb=0, ub=feasibility_tol) for var in self.coupling_vars]
         if kwargs["constraints"] is None:
             kwargs["constraints"] = self.feasibility_constraints
         else:
@@ -44,8 +43,8 @@ class IDF(OptProblem):
 
         # Evaluate feasibility constraints
         for var in self.coupling_vars:
-            outputs[var.name + "_con"] = self._values[var.name] - \
-                outputs[var.name]
+            outputs[var.name +
+                    "_con"] = norm(self._values[var.name] - outputs[var.name])**2
 
         # Set the values of the constraints and the objective
         for var in self.output_vars:
@@ -54,18 +53,21 @@ class IDF(OptProblem):
     def _differentiate(self) -> None:
         # Evaluate the partials
         partials = {}
+        outputs = {}
         for disc in self.disciplines:
+            outputs.update(disc.get_output_values())
             partials.update(disc.differentiate())
 
         # Feasibility constraint jacobians
         for out_var in self.coupling_vars:
             for in_var in self.design_vars:
                 if in_var.name == out_var.name:
-                    self._jac[out_var.name + "_con"][out_var.name] = ones(
-                        (out_var.size, out_var.size), dtype=FLOAT_DTYPE)
+                    self._jac[out_var.name + "_con"][out_var.name] = 2 * \
+                        (self._values[out_var.name] - outputs[out_var.name])
                 elif in_var.name in partials[out_var.name]:
-                    self._jac[out_var.name + "_con"][in_var.name] = - \
-                        partials[out_var.name][in_var.name]
+                    self._jac[out_var.name + "_con"][in_var.name] = -2 * \
+                        (self._values[out_var.name] - outputs[out_var.name]
+                         )  @ partials[out_var.name][in_var.name]
 
         # Objective and constraint jacobians
         for out_var in self.output_vars:
