@@ -60,38 +60,6 @@ class OptProblem(Discipline):
         # Optimization history and iteration number
         self.history, self.iter = [], 0
 
-    def relax_equality_constraints(self, fact: float = 0.01, tol: float = 1e-6) -> None:
-        """
-        Relax the equality constraints into inequality constraints.
-        This enables the problem to be solved by algorithms which do not
-        support equality constraints natively. The eq. h(x) = C is turned 
-        into the ineq. constraint C * (1 - fact) <= h(x) <= C * (1 + fact),
-        if abs(C) <= tol, else fact <= h(x) <= fact. 
-
-        Args:
-            fact (float): Equality relaxation factor. Defaults to 0.01.
-        """
-        new_constraints = []
-        for con in self.constraints:
-            if con.lb == con.ub:
-                if abs(con.lb) <= tol:
-                    new_lb = -fact
-                    new_ub = fact
-                else:
-                    new_lb = con.lb * (1 - fact),
-                    new_ub = con.ub * (1 + fact),
-                new_con = Variable(con.name,
-                                   con.size,
-                                   new_lb,
-                                   new_ub,
-                                   con.keep_feasible)
-            else:
-                new_con = con
-            new_constraints.append(new_con)
-        self.constraints = new_constraints
-        self.output_vars = [self.objective] + self.constraints
-        self.doutput_vars = self.output_vars
-
     def eval(self, design_vec: Dict[str, ndarray]):
         # Deormalize design vector, if needed
         if self.use_norm and self._approximating_jac is False:
