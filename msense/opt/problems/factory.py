@@ -6,8 +6,8 @@ from msense.core.discipline import Discipline
 from msense.opt.drivers.driver import Driver
 from msense.opt.problems.opt_problem import OptProblem
 from msense.opt.problems.single_discipline import SingleDiscipline
-from msense.opt.problems.idf import IDF
 from msense.opt.problems.mdf import MDF
+from msense.opt.problems.idf import IDF
 from msense.opt.problems.co import CO
 
 
