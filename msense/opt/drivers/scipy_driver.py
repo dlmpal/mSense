@@ -3,6 +3,7 @@ from typing import Dict
 from numpy import ndarray
 from scipy.optimize import NonlinearConstraint, Bounds, minimize, OptimizeResult
 
+from msense.core.variable import Variable
 from msense.core.discipline import Discipline
 from msense.utils.array_and_dict_utils import concatenate_variable_bounds
 from msense.utils.array_and_dict_utils import array_to_dict_1d, dict_to_array_1d
@@ -24,10 +25,10 @@ class ScipyDriver(Driver):
     def _wrap_objective(self):
         def func(x: ndarray) -> float:
             x = array_to_dict_1d(self.disc.input_vars, x)
-            obj = self.disc.eval(x)[self.disc.output_vars[0].name]
+            obj_value = self.disc.eval(x)[self.disc.output_vars[0].name]
             if self.disc.iter == 0:
                 self.callback()
-            return obj
+            return obj_value
         return func
 
     def _wrap_gradient(self):
@@ -40,22 +41,28 @@ class ScipyDriver(Driver):
         return gradient
 
     def _wrap_constraints(self, use_norm: bool) -> NonlinearConstraint:
-        def constraints(x: ndarray) -> ndarray:
-            x = array_to_dict_1d(self.disc.input_vars, x)
-            cons = self.disc.eval(x)
-            cons = dict_to_array_1d(self.disc.output_vars[1:], cons)
-            return cons
+        def wrap_single_constraint(con: Variable):
+            def constraint(x: ndarray) -> ndarray:
+                x = array_to_dict_1d(self.disc.input_vars, x)
+                con_value = self.disc.eval(x)[con.name]
+                return con_value
 
-        def jacobian(x: ndarray) -> ndarray:
-            x = array_to_dict_1d(self.disc.input_vars, x)
-            jac = self.disc.differentiate(x)
-            jac = dict_to_array_2d(self.disc.input_vars,
-                                   self.disc.output_vars[1:], jac)
-            return jac
+            def jacobian(x: ndarray) -> ndarray:
+                x = array_to_dict_1d(self.disc.input_vars, x)
+                con_jac = self.disc.differentiate(x)
+                con_jac = dict_to_array_2d(self.disc.input_vars,
+                                           [con], con_jac)
+                return con_jac
 
-        cl, cu, _ = concatenate_variable_bounds(
-            self.disc.output_vars[1:], use_norm)
-        return NonlinearConstraint(constraints, cl, cu, jacobian)
+            return constraint, jacobian
+
+        constraints = []
+        for con in self.disc.output_vars[1:]:
+            constraint, jacobian = wrap_single_constraint(con)
+            cl, cu, kf = con.get_bounds_as_array(use_norm)
+            constraints.append(NonlinearConstraint(
+                constraint, cl, cu, jacobian, keep_feasible=kf[0]))
+        return constraints
 
     def _wrap_callback(self):
         if self.method == "trust-constr":
