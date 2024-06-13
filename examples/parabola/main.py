@@ -22,10 +22,17 @@ class Parabola(Discipline):
 
 
 parabola = Parabola()
-prob = create_opt_problem(type="SingleDiscipline", name="ParabolaOpt", disciplines=[parabola], design_vars=[
-    x1, x2], objective=y, use_norm=True, cache_policy="full", cache_path="opt_problem")
+prob = create_opt_problem(type="SingleDiscipline",
+                          name="ParabolaOpt",
+                          disciplines=[parabola],
+                          design_vars=[x1, x2],
+                          objective=y,
+                          use_norm=True,
+                          cache_policy=CachePolicy.FULL)
+parabola.load_cache(), prob.load_cache()
 
 result = prob.solve({"x1": np.array([50.0]), "x2": np.array([50.])})
 prob.plot_objective_history()
+
 print("Parabola evaluations: ", parabola.n_eval)
 prob.save_cache(), parabola.save_cache()
