@@ -12,18 +12,29 @@ class CacheType(str, Enum):
     HDF5 = "hdf5"
 
 
-def create_cache(input_vars: List[Variable], output_vars: List[Variable],
-                 dinput_vars: List[Variable], doutput_vars: List[Variable],
-                 type: CacheType = CacheType.MEMORY, policy: CachePolicy = CachePolicy.LATEST,
-                 tol: float = 1e-9, path: str = None) -> Cache:
-    kwargs = {"path": path, "input_vars": input_vars, "output_vars": output_vars,
-              "dinput_vars": dinput_vars, "doutput_vars": doutput_vars,
-              "policy": policy, "tol": tol}
+def create_cache(input_vars: List[Variable],
+                 output_vars: List[Variable],
+                 dinput_vars: List[Variable],
+                 doutput_vars: List[Variable],
+                 type: CacheType = CacheType.MEMORY,
+                 policy: CachePolicy = CachePolicy.LATEST,
+                 tol: float = 1e-9,
+                 path: str = None) -> Cache:
+
+    kwargs = {"input_vars": input_vars,
+              "output_vars": output_vars,
+              "dinput_vars": dinput_vars,
+              "doutput_vars": doutput_vars,
+              "policy": CachePolicy(policy),
+              "tol": tol,
+              "path": path}
+
     if type is None:
         return None
+
+    type = CacheType(type)
+
     if type == CacheType.MEMORY:
         return MemoryCache(**kwargs)
-    if type == CacheType.HDF5:
+    elif type == CacheType.HDF5:
         return HDF5Cache(**kwargs)
-    else:
-        raise ValueError(f"CacheType {type} is not available.")
