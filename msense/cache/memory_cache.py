@@ -1,63 +1,71 @@
-from typing import Dict, List
+from typing import Dict
 from os.path import exists, splitext
+from logging import getLogger
 
 from numpy import ndarray
 import json
 
-from msense.core.variable import Variable
 from msense.utils.array_and_dict_utils import check_values_match
 from msense.utils.array_and_dict_utils import copy_dict_1d, copy_dict_2d
 from msense.utils.array_and_dict_utils import verify_dict_1d, verify_dict_2d
 from msense.cache.cache import Cache, CachePolicy
 
+logger = getLogger(__name__)
+
 
 class MemoryCache(Cache):
+    """
+    A cache stored entirely in memory. 
+    Can be saved as a json file, and loaded at runtime.
+    """
+
     def __init__(self, **kwargs) -> None:
+        # Ensure that the filename has a .json extension
+        if kwargs["path"] is not None:
+            path, ext = splitext(kwargs["path"])
+            if ext != ".json":
+                kwargs["path"] = path + ".json"
+
         # Entries is a list of dictionaries
-        self.entries = []
-        # Add .json suffix to cache path
-        _, suffix = splitext(kwargs["path"])
-        if suffix != ".json":
-            kwargs["path"] += ".json"
+        # The last item of the list is the latest
+        # entry in the cache
+        self._entries = []
+
         super().__init__(**kwargs)
 
     def check_if_entry_exists(self, input_values: Dict[str, ndarray]):
-        if not self.entries:
-            return None
-        for entry in reversed(self.entries):
-            if check_values_match(self.input_vars,
-                                  entry["inputs"],
-                                  input_values,
-                                  self.tol):
+        for entry in reversed(self._entries):
+            if check_values_match(self.input_vars, entry["inputs"],
+                                  input_values, self.tol):
                 return entry
         return None
 
-    def add_entry(self,
-                  input_values: Dict[str, ndarray],
+    def add_entry(self, input_values: Dict[str, ndarray],
                   output_values: Dict[str, ndarray] = None,
                   jac: Dict[str, Dict[str, ndarray]] = None) -> None:
-        # If entry does not exist, instantiate new one
-        new_entry = self.check_if_entry_exists(input_values)
-        if new_entry is None:
-            new_entry = {"inputs": copy_dict_1d(self.input_vars, input_values),
-                         "outputs": {},
-                         "jac": {}}
+        # Check if an entry exists for the given inputs
+        entry = self.check_if_entry_exists(input_values)
+
+        # If the entry does not exist, create a new one
+        entry_exists = True
+        if entry is None:
+            entry = {"inputs": copy_dict_1d(self.input_vars, input_values),
+                     "outputs": {},
+                     "jac": {}}
             entry_exists = False
-        else:
-            entry_exists = True
-        # Modify entry outputs, if given
+
         if output_values is not None:
-            new_entry["outputs"] = copy_dict_1d(
-                self.output_vars, output_values)
-        # Modify entry jac, if given
+            entry["outputs"] = copy_dict_1d(self.output_vars, output_values)
+
         if jac is not None:
-            new_entry["jac"] = copy_dict_2d(
+            entry["jac"] = copy_dict_2d(
                 self.dinput_vars, self.doutput_vars, jac)
-        # Clear the entries and append, if required
+
+        if self.policy == CachePolicy.FULL and entry_exists is False:
+            self._entries.append(entry)
+
         if self.policy == CachePolicy.LATEST:
-            self.entries = []
-        if entry_exists == False or len(self.entries) == 0:
-            self.entries.append(new_entry)
+            self._entries = [entry]
 
     def load_entry(self, input_values: Dict[str, ndarray]):
         entry = self.check_if_entry_exists(input_values)
@@ -67,48 +75,66 @@ class MemoryCache(Cache):
         else:
             return None, None
 
-    def from_disk(self):
+    def from_file(self):
         if not exists(self.path):
+            logger.warn(
+                f"MemoryCache cannot be loaded from file. File: {self.path} does not exist.")
             return
+
         with open(self.path, "r") as file:
+            # Load the json object
             json_obj = json.load(file)
-            self.entries = []
+
+            self._entries = []
             for _, entry in json_obj.items():
-                # Load inputs
+                # Load input values
                 entry["inputs"] = verify_dict_1d(
                     self.input_vars, entry["inputs"])
-                # Load outputs
+
+                # Load output values, if they exist
                 if entry["outputs"]:
                     entry["outputs"] = verify_dict_1d(
                         self.output_vars, entry["outputs"])
-                # Load jacobian, if exists
+
+                # Load jacobian, if it exists
                 if entry["jac"]:
                     entry["jac"] = verify_dict_2d(
                         self.dinput_vars, self.doutput_vars, entry["jac"])
-                # Add the entry
-                self.entries.append(entry)
 
-    def to_disk(self):
-        json_obj = {}
-        for entry_idx, entry in enumerate(self.entries):
-            json_obj[entry_idx] = {"inputs": {}, "outputs": {}, "jac": {}}
-            # Write inputs
+                # Add the entry
+                self._entries.append(entry)
+
+        if self.policy == CachePolicy.LATEST:
+            self._entries = [self._entries[-1]]
+
+    def to_file(self):
+        # Convert the list of entries to dictionary
+        entry_dict = {}
+        for entry_idx, entry in enumerate(self._entries):
+            # Create a new entry in the json dictionary
+            entry_dict[entry_idx] = {"inputs": {}, "outputs": {}, "jac": {}}
+
+            # Write input values
             for in_var in self.input_vars:
-                json_obj[entry_idx]["inputs"][in_var.name] = entry["inputs"][in_var.name].tolist(
+                entry_dict[entry_idx]["inputs"][in_var.name] = entry["inputs"][in_var.name].tolist(
                 )
-            # Write outputs
+
+            # Write output, if they exist
             if entry["outputs"]:
                 for out_var in self.output_vars:
-                    json_obj[entry_idx]["outputs"][out_var.name] = entry["outputs"][out_var.name].tolist(
+                    entry_dict[entry_idx]["outputs"][out_var.name] = entry["outputs"][out_var.name].tolist(
                     )
-            # Write jacobian, if exists
-            if entry["jac"]:
-                for dout_var in self.doutput_vars:
-                    json_obj[entry_idx]["jac"][dout_var.name] = {}
 
-                    for din_var in self.dinput_vars:
-                        json_obj[entry_idx]["jac"][dout_var.name][din_var.name] = entry["jac"][dout_var.name][din_var.name].tolist(
+            # Write jacobian, if it exists
+            if entry["jac"]:
+                for out_var in self.doutput_vars:
+                    entry_dict[entry_idx]["jac"][out_var.name] = {}
+                    for in_var in self.dinput_vars:
+                        entry_dict[entry_idx]["jac"][out_var.name][in_var.name] = entry["jac"][out_var.name][in_var.name].tolist(
                         )
-        json_obj = json.dumps(json_obj, indent=4)
+
+        # Create a json object from the entry dictionary
+        # and save the object to file
+        json_obj = json.dumps(entry_dict, indent=4)
         with open(self.path, "w") as file:
             file.write(json_obj)
