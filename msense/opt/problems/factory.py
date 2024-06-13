@@ -12,10 +12,10 @@ from msense.opt.problems.co import CO
 
 
 class OptProblemType(str, Enum):
-    SignleDiscipline = "SingleDiscipline"
-    MDF = "MDF"
-    IDF = "IDF"
-    CO = "CO"
+    SINGLE_DISCIPLINE = "single_discipline"
+    MDF = "mdf"
+    IDF = "idf"
+    CO = "co"
 
 
 def create_opt_problem(type: OptProblemType, disciplines: List[Discipline],
@@ -28,7 +28,9 @@ def create_opt_problem(type: OptProblemType, disciplines: List[Discipline],
     kwargs["name"] = name if name is not None else type
     kwargs.update(options)
 
-    if type == OptProblemType.SignleDiscipline:
+    type = OptProblemType(type)
+
+    if type == OptProblemType.SINGLE_DISCIPLINE:
         return SingleDiscipline(disciplines[0], **kwargs)
     elif type == OptProblemType.MDF:
         return MDF(disciplines, **kwargs)
@@ -36,5 +38,3 @@ def create_opt_problem(type: OptProblemType, disciplines: List[Discipline],
         return IDF(disciplines, **kwargs)
     elif type == OptProblemType.CO:
         return CO(disciplines, **kwargs)
-    else:
-        raise ValueError(f"OptProblemType {type} is not available.")
