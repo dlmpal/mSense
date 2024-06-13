@@ -4,12 +4,10 @@ from enum import Enum
 from msense.core.variable import Variable
 from msense.cache.cache import Cache, CachePolicy
 from msense.cache.memory_cache import MemoryCache
-from msense.cache.hdf5_cache import HDF5Cache
 
 
 class CacheType(str, Enum):
     MEMORY = "memory"
-    HDF5 = "hdf5"
 
 
 def create_cache(input_vars: List[Variable],
@@ -36,5 +34,3 @@ def create_cache(input_vars: List[Variable],
 
     if type == CacheType.MEMORY:
         return MemoryCache(**kwargs)
-    elif type == CacheType.HDF5:
-        return HDF5Cache(**kwargs)

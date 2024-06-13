@@ -8,7 +8,6 @@ from msense.core.discipline import Discipline
 from msense.cache.cache import Cache
 from msense.cache.cache import CachePolicy
 from msense.cache.memory_cache import MemoryCache
-from msense.cache.hdf5_cache import HDF5Cache
 from msense.cache.factory import CacheType
 from msense.cache.factory import create_cache
 
