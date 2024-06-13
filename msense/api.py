@@ -26,8 +26,9 @@ from msense.solver.factory import create_solver
 # Optimization problems
 from msense.opt.problems.opt_problem import OptProblem
 from msense.opt.problems.single_discipline import SingleDiscipline
-from msense.opt.problems.idf import IDF
 from msense.opt.problems.mdf import MDF
+from msense.opt.problems.idf import IDF
+from msense.opt.problems.co import CO
 from msense.opt.problems.factory import OptProblemType
 from msense.opt.problems.factory import create_opt_problem
 
