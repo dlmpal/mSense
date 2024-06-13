@@ -49,7 +49,7 @@ class SimpleDisc(Discipline):
         self.func = func
         self.dfunc = dfunc
         super().__init__(name, input_vars, output_vars,
-                         cache_policy=CachePolicy.FULL, cache_type=CacheType.HDF5)
+                         cache_policy=CachePolicy.FULL, cache_type=CacheType.MEMORY)
 
     def _eval(self) -> None:
         self._values.update(self.func(self._values))
