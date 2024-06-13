@@ -13,25 +13,39 @@ class CachePolicy(Enum):
 
 
 class Cache(ABC):
-    def __init__(self, path: str, input_vars: List[Variable], output_vars: List[Variable], dinput_vars: List[Variable] = None,
-                 doutput_vars: List[Variable] = None, policy: CachePolicy = CachePolicy.LATEST, tol: float = 1e-9) -> None:
+    """
+    Base cache class
+    """
+
+    def __init__(self,
+                 input_vars: List[Variable],
+                 output_vars: List[Variable],
+                 dinput_vars: List[Variable] = None,
+                 doutput_vars: List[Variable] = None,
+                 policy: CachePolicy = CachePolicy.LATEST,
+                 tol: float = 1e-9,
+                 path: str = None
+                 ) -> None:
         """
-        Initialize cache.
+        Initialize the cache.
         """
-        self.path = path
         self.input_vars = input_vars
         self.output_vars = output_vars
+
         self.dinput_vars = dinput_vars
         if self.dinput_vars is None:
             self.dinput_vars = self.input_vars
+
         self.doutput_vars = doutput_vars
         if self.doutput_vars is None:
             self.doutput_vars = self.output_vars
+
         self.policy = policy
         self.tol = tol
 
-        # Try to load the cache
-        self.from_disk()
+        if path is None:
+            path = ""
+        self.path = path
 
     @abstractmethod
     def check_if_entry_exists(self, input_values: Dict[str, ndarray]):
@@ -69,15 +83,15 @@ class Cache(ABC):
         ...
 
     @abstractmethod
-    def from_disk(self):
+    def from_file(self):
         """
-        Load the cache entries from disk
+        Load the cache entries from file
         """
         ...
 
     @abstractmethod
-    def to_disk(self):
+    def to_file(self):
         """
-        Save the cache entries to disk
+        Save the cache entries to file
         """
         ...
