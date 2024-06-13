@@ -1,5 +1,6 @@
 from typing import Dict, List
 from enum import Enum
+from abc import ABC, abstractmethod
 import logging
 
 from numpy import ndarray, zeros
@@ -14,7 +15,7 @@ from msense.utils.graph_utils import get_couplings
 logger = logging.getLogger(__name__)
 
 
-class Solver:
+class Solver(ABC):
     """
     Base solver class 
     """
@@ -52,13 +53,14 @@ class Solver:
         self._old_values: Dict[str, ndarray] = {}
         self._values: Dict[str, ndarray] = {}
 
+    @abstractmethod
     def _single_iteration(self):
         """
         Perform a single solver iteration.
         * self._values should be updated here
         * To be implemented by the subclasses.
         """
-        raise NotImplementedError
+        ...
 
     def _apply_relaxation(self) -> None:
         """
