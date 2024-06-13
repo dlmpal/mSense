@@ -9,9 +9,9 @@ from msense.solver.newton_raphson import NewtonRaphson
 
 
 class SolverType(str, Enum):
-    NONLINEAR_GS = "NonlinearGS"
-    NONLINEAR_JACOBI = "NonlinearJacobi"
-    NEWTON_RAPHSON = "NewtonRaphson"
+    NONLINEAR_GS = "nonlinear_gs"
+    NONLINEAR_JACOBI = "nonlinear_jacobi"
+    NEWTON_RAPHSON = "newton_raphson"
 
 
 def create_solver(disciplines: List[Discipline], type: SolverType = SolverType.NONLINEAR_GS,
@@ -21,11 +21,11 @@ def create_solver(disciplines: List[Discipline], type: SolverType = SolverType.N
               "relax_fact": relax_fact, "tol": tol}
     kwargs["name"] = name if name is not None else type
 
+    type = SolverType(type)
+
     if type == SolverType.NONLINEAR_GS:
         return NonlinearGS(**kwargs)
     if type == SolverType.NONLINEAR_JACOBI:
         return NonlinearJacobi(**kwargs)
     if type == SolverType.NEWTON_RAPHSON:
         return NewtonRaphson(**kwargs)
-    else:
-        raise ValueError(f"SolverType {type} is not available.")
