@@ -177,12 +177,10 @@ def check_values_match(vars: List[Variable], original: Dict[str, ndarray] = {},
     if not original or not test:
         return False
 
-    err = 0.0
     for var in vars:
-        err += (norm(original[var.name] - test[var.name]
-                     ) / (1.0 + norm(test[var.name])))
-
-    if err >= tol:
-        return False
+        err = (norm(original[var.name] - test[var.name]
+                    ) / (1.0 + norm(test[var.name])))
+        if err >= tol:
+            return False
 
     return True
