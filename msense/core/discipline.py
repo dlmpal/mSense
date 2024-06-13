@@ -31,7 +31,7 @@ class Discipline:
 
     class DiffPolicy(Enum):
         """
-        Whether to evaluate a point, before differentiating.
+        Whether to evaluate a set of values before differentiating.
         """
         ALWAYS = True
         NEVER = False
@@ -52,7 +52,7 @@ class Discipline:
             cache_type (CacheType, optional): Type of cache. Defaults to CacheType.MEMORY.
             cache_policy (CachePolicy, optional): Caching policy. Defaults to CachePolicy.LATEST.
             cache_tol (float, optional): Cache tolerance. Defaults to 1e-9.
-            cache_path (str, optional): Path to cache file. Defaults to None.
+            cache_path (str, optional): Path to cache file. If None, the discipline name is used.
         """
         self.name: str = name
         self.input_vars: List[Variable] = input_vars
@@ -182,12 +182,19 @@ class Discipline:
         if self.cache is not None:
             self.cache.add_entry(self._values, None, self._jac)
 
-    def save_cache(self) -> None:
+    def load_cache(self) -> None:
         """
-        Save the cache to disk.
+        Try to load the discipline cache from file.
         """
         if self.cache is not None:
-            self.cache.to_disk()
+            self.cache.from_file()
+
+    def save_cache(self) -> None:
+        """
+        Save the cache to file.
+        """
+        if self.cache is not None:
+            self.cache.to_file()
 
     def _sanitize_inputs(self, input_values: Dict[str, ndarray]):
         """
