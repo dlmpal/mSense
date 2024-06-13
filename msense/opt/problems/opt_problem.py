@@ -1,4 +1,5 @@
 from typing import Dict, List
+import logging
 
 from numpy import ndarray, isinf, isneginf
 import matplotlib.pyplot as plt
@@ -10,7 +11,6 @@ from msense.core.discipline import Discipline
 from msense.opt.drivers.driver import Driver
 from msense.opt.drivers.factory import create_driver
 
-import logging
 logger = logging.getLogger(__name__)
 
 
