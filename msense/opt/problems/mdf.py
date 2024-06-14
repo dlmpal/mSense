@@ -18,7 +18,7 @@ class MDF(OptProblem):
         super().__init__(**kwargs)
 
     def _eval(self):
-        # Update the disciplinary inputs according to the values
+        # Update the disciplinary inputs by the values
         # provided by optimizer
         for disc in self.disciplines:
             disc.add_default_inputs(self._values)
@@ -28,16 +28,18 @@ class MDF(OptProblem):
 
         # Grab the values of the constraints and the objective
         # from the disciplinary outputs
-        outputs = {}
+        disc_outputs = {}
         for disc in self.disciplines:
-            outputs.update(disc.get_output_values())
+            disc_outputs.update(disc.get_output_values())
         for var in self.output_vars:
-            self._values[var.name] = outputs[var.name]
+            self._values[var.name] = disc_outputs[var.name]
 
     def _differentiate(self) -> None:
-        # Evaluate the partials, and then assemble the total derivatives
-        partials = {}
+        # Evaluate the discipline partials
+        disc_partials = {}
         for disc in self.disciplines:
-            partials.update(disc.differentiate())
+            disc_partials.update(disc.differentiate())
+
+        # Assemble the total (coupled) derivatives
         self._jac = self.assembler.assemble_total(
-            self.input_vars, self.output_vars, self.solver.coupling_vars, partials)
+            self.input_vars, self.output_vars, self.solver.coupling_vars, disc_partials)
