@@ -8,7 +8,7 @@ from msense.core.discipline import Discipline
 from msense.utils.array_and_dict_utils import concatenate_variable_bounds
 from msense.utils.array_and_dict_utils import array_to_dict_1d, dict_to_array_1d
 from msense.utils.array_and_dict_utils import normalize_dict_1d, denormalize_dict_1d
-from msense.utils.array_and_dict_utils import dict_to_array_2d
+from msense.utils.array_and_dict_utils import array_to_dict_2d, dict_to_array_2d, denormalize_dict_2d
 from msense.opt.drivers.driver import Driver
 
 
@@ -83,12 +83,12 @@ class ScipyDriver(Driver):
             self.disc.input_vars, use_norm)
         return Bounds(lb, ub, kf)
 
-    def _convert_result(self, scipy_result: OptimizeResult) -> Dict[str, any]:
+    def _convert_result(self, scipy_result: OptimizeResult, use_norm: bool) -> Dict[str, any]:
         result = {}
 
         result["inputs"] = array_to_dict_1d(
             self.disc.input_vars, scipy_result.x)
-        if self.disc.use_norm:
+        if use_norm:
             result["inputs"] = denormalize_dict_1d(
                 self.disc.input_vars, result["inputs"])
 
@@ -96,7 +96,11 @@ class ScipyDriver(Driver):
         if "jac" in scipy_result:
             result["jac"] = array_to_dict_1d(
                 self.disc.input_vars, scipy_result.jac)
-
+            if use_norm and self.method != "trust-constr":
+                result["jac"] = {self.disc.output_vars[0].name: result["jac"]}
+                result["jac"] = denormalize_dict_2d(self.disc.input_vars,
+                                                    [self.disc.output_vars[0]],
+                                                    result["jac"])
         if "nit" in scipy_result:
             result["iter"] = scipy_result.nit
 
@@ -125,4 +129,4 @@ class ScipyDriver(Driver):
                           method=self.method, tol=self.tol,
                           options=self.options)
 
-        return self._convert_result(result)
+        return self._convert_result(result, use_norm)
