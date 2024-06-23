@@ -31,7 +31,7 @@ prob = create_opt_problem(type="SingleDiscipline",
                           cache_policy=CachePolicy.FULL)
 parabola.load_cache(), prob.load_cache()
 
-result = prob.solve({"x1": np.array([50.0]), "x2": np.array([50.])})
+prob.solve({"x1": np.array([50.0]), "x2": np.array([50.])})
 prob.plot_objective_history()
 
 print("Parabola evaluations: ", parabola.n_eval)
