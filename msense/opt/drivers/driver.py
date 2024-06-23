@@ -1,4 +1,4 @@
-from typing import Dict, Callable
+from typing import Callable, Dict, Tuple
 
 from numpy import ndarray
 
@@ -15,6 +15,12 @@ class Driver:
         self.n_iter_max = n_iter_max
         self.tol = tol
         self.callback = callback
+        self.iter = 0
 
-    def solve(self, input_values: Dict[str, ndarray], use_norm: bool):
+    def _callback(self) -> None:
+        if self.callback is not None:
+            self.callback()
+        self.iter += 1
+
+    def solve(self, input_values: Dict[str, ndarray], use_norm: bool) -> Tuple[bool, str]:
         raise NotImplementedError

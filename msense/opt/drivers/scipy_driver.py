@@ -1,7 +1,7 @@
-from typing import Dict
+from typing import Dict, Tuple
 
 from numpy import ndarray
-from scipy.optimize import NonlinearConstraint, Bounds, minimize, OptimizeResult
+from scipy.optimize import NonlinearConstraint, Bounds, minimize
 
 from msense.core.variable import Variable
 from msense.core.discipline import Discipline
@@ -26,8 +26,8 @@ class ScipyDriver(Driver):
         def func(x: ndarray) -> float:
             x = array_to_dict_1d(self.disc.input_vars, x)
             obj_value = self.disc.eval(x)[self.disc.output_vars[0].name]
-            if self.disc.iter == 0:
-                self.callback()
+            if self.iter == 0:
+                self._callback()
             return obj_value
         return func
 
@@ -67,15 +67,15 @@ class ScipyDriver(Driver):
     def _wrap_callback(self):
         if self.method == "trust-constr":
             def callback(x, result):
-                self.callback()
+                self._callback()
             return callback
         elif self.method in ["TNC", "SLSQP", "COBYLA"]:
             def callback(x):
-                self.callback()
+                self._callback()
             return callback
         else:
             def callback(result):
-                self.callback()
+                self._callback()
             return callback
 
     def _wrap_bounds(self, use_norm):
@@ -83,33 +83,7 @@ class ScipyDriver(Driver):
             self.disc.input_vars, use_norm)
         return Bounds(lb, ub, kf)
 
-    def _convert_result(self, scipy_result: OptimizeResult, use_norm: bool) -> Dict[str, any]:
-        result = {}
-
-        result["inputs"] = array_to_dict_1d(
-            self.disc.input_vars, scipy_result.x)
-        if use_norm:
-            result["inputs"] = denormalize_dict_1d(
-                self.disc.input_vars, result["inputs"])
-
-        result["objective"] = scipy_result.fun
-        if "jac" in scipy_result:
-            result["jac"] = array_to_dict_1d(
-                self.disc.input_vars, scipy_result.jac)
-            if use_norm and self.method != "trust-constr":
-                result["jac"] = {self.disc.output_vars[0].name: result["jac"]}
-                result["jac"] = denormalize_dict_2d(self.disc.input_vars,
-                                                    [self.disc.output_vars[0]],
-                                                    result["jac"])
-        if "nit" in scipy_result:
-            result["iter"] = scipy_result.nit
-
-        result["message"] = scipy_result.message
-        result["converged"] = scipy_result.success
-
-        return result
-
-    def solve(self, input_values: Dict[str, ndarray], use_norm: bool) -> Dict[str, any]:
+    def solve(self, input_values: Dict[str, ndarray], use_norm: bool) -> Tuple[bool, str]:
         # Normalize the input values if needed,
         # and covert to 1d numpy array
         if use_norm:
@@ -117,6 +91,9 @@ class ScipyDriver(Driver):
                 self.disc.input_vars, input_values)
         input_values = dict_to_array_1d(
             self.disc.input_vars, input_values)
+
+        # Reset the iteration number
+        self.iter = 0
 
         # Solve the optimization problem using SciPy
         self.options["maxiter"] = self.n_iter_max
@@ -129,4 +106,7 @@ class ScipyDriver(Driver):
                           method=self.method, tol=self.tol,
                           options=self.options)
 
-        return self._convert_result(result, use_norm)
+        # Driver convergence and related message
+        converged, message = result["success"], result["message"]
+
+        return converged, message
