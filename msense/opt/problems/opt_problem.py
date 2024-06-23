@@ -38,6 +38,11 @@ class OptProblem(Discipline):
         self.constraints = constraints if constraints is not None else []
         self.max_obj = maximize_objective
 
+        # Check if the objective is scalar
+        if self.objective.size > 1:
+            logger.warn(
+                f"In {self.name}, the objective {self.objective.name} is not scalar (size = {self.objective.size}).")
+
         # Normalization can be used only if
         # all design variables have finite bounds
         self.use_norm = use_norm
@@ -45,7 +50,6 @@ class OptProblem(Discipline):
             if isinf(var.ub) or isneginf(var.lb):
                 self.use_norm = False
                 break
-            pass
 
         # Driver
         self.driver = driver
@@ -57,8 +61,8 @@ class OptProblem(Discipline):
         output_vars = [self.objective] + self.constraints
         super().__init__(name, input_vars, output_vars, **cache_options)
 
-        # Optimization history and iteration number
-        self.history, self.iter = [], 0
+        # Optimization history
+        self.history = []
 
     def eval(self, design_vec: Dict[str, ndarray]):
         # Deormalize design vector, if needed
@@ -102,23 +106,33 @@ class OptProblem(Discipline):
         Should be called at the end of each major driver/optimizer iteration.
         """
         entry = {}
-        entry[self.objective.name] = self._values[self.objective.name][0]
-        entry.update(copy_dict_1d(self.design_vars, self._values))
+        entry.update(copy_dict_1d(self.input_vars +
+                     self.output_vars, self._values))
         self.history.append(entry)
 
         logger.info(
-            f"{self.name} - Iteration: {self.iter} - Objective: {self._values[self.objective.name][0]}")
-
-        self.iter += 1
+            f"{self.name} - Iteration: {self.driver.iter} - Objective: {self._values[self.objective.name][0]}")
 
     def solve(self, design_vec: Dict[str, ndarray]) -> Dict[str, any]:
-        # Reset history and iteration number
-        self.history, self.iter = [], 0
+        # Reset history
+        self.history = []
 
         # Set driver callback
         self.driver.callback = self.update_history
 
-        return self.driver.solve(design_vec, self.use_norm)
+        # Solve the problem using the selected driver
+        converged, message = self.driver.solve(design_vec, self.use_norm)
+
+        # Check convergence
+        if converged:
+            logger.info(
+                f"{self.name} has converged successfully in {self.driver.iter} iterations.")
+        else:
+            logger.warn(
+                f"{self.name} has not converged in {self.driver.iter} iterations. Related driver message: {message}")
+
+        # Return the design variable values
+        return self.get_input_values()
 
     def plot_objective_history(self, show: bool = True, save: bool = False, filename: str = None) -> None:
         """
