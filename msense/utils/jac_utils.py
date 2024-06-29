@@ -38,6 +38,7 @@ def finite_difference_approx(func: Callable[[Dict[str, ndarray]], Dict[str, ndar
             dx = eps * (1 + abs(input_values[in_var.name][i]))
 
             # Perturb the input variable
+            copy = input_values[in_var.name][i]
             input_values[in_var.name][i] += dx
 
             # Evaluate the function with the perturbed input values
@@ -49,7 +50,7 @@ def finite_difference_approx(func: Callable[[Dict[str, ndarray]], Dict[str, ndar
                     output_values_p[out_var.name] - output_values[out_var.name]) / dx
 
             # Reset the perturbed value
-            input_values[in_var.name][i] -= dx
+            input_values[in_var.name][i] = copy
 
     return jac
 
@@ -75,6 +76,7 @@ def complex_step_approx(func: Callable[[Dict[str, ndarray]], Dict[str, ndarray]]
         for i in range(in_var.size):
 
             # Perturb the input variable
+            copy = input_values[in_var.name][i]
             input_values[in_var.name][i] += eps * 1j
 
             # Evaluate the function with the perturbed input values
@@ -86,6 +88,6 @@ def complex_step_approx(func: Callable[[Dict[str, ndarray]], Dict[str, ndarray]]
                     output_values_p[out_var.name]) / eps
 
             # Reset the perturbed value
-            input_values[in_var.name][i] -= eps * 1j
+            input_values[in_var.name][i] = copy
 
     return jac
