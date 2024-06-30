@@ -270,8 +270,9 @@ class Discipline:
         """
         Setup the jacobian approximation.
         """
-        if method == self.DiffMethod.ANALYTIC:
-            return
+        if method != self.DiffMethod.FINITE_DIFFERENCE and method != self.DiffMethod.COMPLEX_STEP:
+            logger.error(
+                f"{self.name}: {method} is not a valid jacobian approximation method.")
         else:
             self._diff_method, self._eps = method, eps
             self._diff_policy = self.DiffPolicy.ALWAYS
