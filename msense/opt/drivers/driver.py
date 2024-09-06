@@ -1,11 +1,12 @@
 from typing import Callable, Dict, Tuple
+from abc import ABC, abstractmethod
 
 from numpy import ndarray
 
 from msense.core.discipline import Discipline
 
 
-class Driver:
+class Driver(ABC):
     """
     Base driver class
     """
@@ -22,5 +23,6 @@ class Driver:
             self.callback()
         self.iter += 1
 
+    @abstractmethod
     def solve(self, input_values: Dict[str, ndarray], use_norm: bool) -> Tuple[bool, str]:
-        raise NotImplementedError
+        ...

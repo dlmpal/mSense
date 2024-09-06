@@ -1,6 +1,7 @@
 from typing import Dict
 from typing import List
 from enum import Enum
+from abc import ABC, abstractmethod
 import logging
 
 from numpy import ndarray
@@ -17,7 +18,7 @@ from msense.utils.jac_utils import initialize_dense_jac
 logger = logging.getLogger(__name__)
 
 
-class Discipline:
+class Discipline(ABC):
     """
     Base discipline class.
     """
@@ -216,12 +217,13 @@ class Discipline:
         except Exception as e:
             logger.error(f"{self.name}: {e}")
 
+    @abstractmethod
     def _eval(self) -> None:
         """
         Update the values for the output variables
         * self._values should be updated here.
         """
-        raise NotImplementedError
+        ...
 
     def eval(self, input_values: Dict[str, ndarray] = None) -> Dict[str, ndarray]:
         """
@@ -309,12 +311,13 @@ class Discipline:
         self._values.update(output_values)
         self._approximating_jac = False
 
+    @abstractmethod
     def _differentiate(self) -> None:
         """
         Update the values for the jacobian.
         * self._jac should be updated here.
         """
-        raise NotImplementedError
+        ...
 
     def differentiate(self, input_values: Dict[str, ndarray] = None) -> Dict[str, Dict[str, ndarray]]:
         """
