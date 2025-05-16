@@ -11,7 +11,9 @@ from msense.cache.cache import CachePolicy
 from msense.cache.factory import CacheType, create_cache
 from msense.utils.array_and_dict_utils import verify_dict_1d, verify_dict_2d
 from msense.utils.array_and_dict_utils import copy_dict_1d, copy_dict_2d
-from msense.utils.jac_utils import finite_difference_approx, complex_step_approx
+from msense.utils.jac_utils import forward_finite_difference_approx
+from msense.utils.jac_utils import central_finite_difference_approx
+from msense.utils.jac_utils import complex_step_approx
 from msense.utils.jac_utils import initialize_dense_jac
 
 logger = logging.getLogger(__name__)
@@ -21,12 +23,13 @@ class Discipline:
     """
     Base discipline class.
     """
-    class DiffMethod(Enum):
+    class DiffMethod(str, Enum):
         """
         The method by which the discipline is differentiated.
         """
         ANALYTIC = "analytic"
-        FINITE_DIFFERENCE = "finite_difference"
+        FINITE_DIFFERENCE = "finite_difference",
+        CENTRAL_FINITE_DIFFERENCE = "central_finite_difference"
         COMPLEX_STEP = "complex_step"
 
     class DiffPolicy(Enum):
@@ -270,7 +273,9 @@ class Discipline:
         """
         Setup the jacobian approximation.
         """
-        if method != self.DiffMethod.FINITE_DIFFERENCE and method != self.DiffMethod.COMPLEX_STEP:
+        if method not in [self.DiffMethod.FINITE_DIFFERENCE,
+                          self.DiffMethod.CENTRAL_FINITE_DIFFERENCE,
+                          self.DiffMethod.COMPLEX_STEP]:
             logger.error(
                 f"{self.name}: {method} is not a valid jacobian approximation method.")
         else:
@@ -295,8 +300,14 @@ class Discipline:
         # Approximate jacobian
         # Finite-differences
         if self._diff_method == self.DiffMethod.FINITE_DIFFERENCE:
-            self._jac = finite_difference_approx(self.eval, self.dinput_vars, self.doutput_vars,
-                                                 self.get_input_values(), self.get_output_values(), self._jac, self._eps)
+            self._jac = forward_finite_difference_approx(self.eval, self.dinput_vars, self.doutput_vars,
+                                                         self.get_input_values(), self.get_output_values(), self._jac, self._eps)
+
+        # Central finite-differences
+        if self._diff_method == self.DiffMethod.CENTRAL_FINITE_DIFFERENCE:
+            self._jac = central_finite_difference_approx(self.eval, self.dinput_vars, self.doutput_vars,
+                                                         self.get_input_values(), self.get_output_values(), self._jac, self._eps)
+
         # Complex-step
         if self._diff_method == self.DiffMethod.COMPLEX_STEP:
             self._dtype = COMPLEX_DTYPE
