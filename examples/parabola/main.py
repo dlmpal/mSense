@@ -22,7 +22,7 @@ class Parabola(Discipline):
 
 
 parabola = Parabola()
-prob = create_opt_problem(type="SingleDiscipline",
+prob = create_opt_problem(type="single_discipline",
                           name="ParabolaOpt",
                           disciplines=[parabola],
                           design_vars=[x1, x2],
