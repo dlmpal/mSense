@@ -45,7 +45,7 @@ def verify_dict_1d(vars: List[Variable], values_dict: Dict[str, ndarray], dtype=
     """
     for var in vars:
         if var.name not in values_dict:
-            raise TypeError(f"Missing value for Variable {var.name}.")
+            raise KeyError(f"Missing value for Variable {var.name}.")
         values_dict[var.name] = atleast_1d(values_dict[var.name]).astype(dtype)
         if var.size != values_dict[var.name].size:
             raise ValueError(
@@ -96,11 +96,11 @@ def verify_dict_2d(input_vars: List[Variable], output_vars: List[Variable],
                    values_dict: Dict[str, Dict[str, ndarray]], dtype=FLOAT_DTYPE) -> Dict[str, Dict[str, ndarray]]:
     for out_var in output_vars:
         if out_var.name not in values_dict:
-            raise TypeError(
+            raise KeyError(
                 f"Missing entry for output Variable {out_var.name}.")
         for in_var in input_vars:
             if in_var.name not in values_dict[out_var.name]:
-                raise TypeError(
+                raise KeyError(
                     f"For output Variable {out_var.name}, missing entry for input Variable {in_var.name}.")
             values_dict[out_var.name][in_var.name] = atleast_2d(
                 values_dict[out_var.name][in_var.name]).astype(dtype)
