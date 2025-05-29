@@ -168,11 +168,11 @@ class OptProblem(Discipline):
         ax.plot([i for i in range(len(self.history))],
                 [entry[var.name][comp] for entry in self.history], '-o', color='blue')
 
-        if show_lb:
+        if show_lb and not isneginf(var.lb):
             ax.hlines([var.lb], xmin=-1,
                       xmax=len(self.history), colors=['red'])
 
-        if show_ub:
+        if show_ub and not isinf(var.ub):
             ax.hlines([var.ub], xmin=-1,
                       xmax=len(self.history), colors=['red'])
 
