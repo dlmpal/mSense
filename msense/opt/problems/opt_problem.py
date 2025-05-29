@@ -134,6 +134,68 @@ class OptProblem(Discipline):
         # Return the design variable values
         return self.get_input_values()
 
+    def plot_variable_history(self, var: Variable, comp: int = 0,
+                              show_lb: bool = False,  show_ub: bool = False,
+                              y_label: str = None, title: str = None,
+                              show: bool = True, save: bool = False, filename: str = None) -> None:
+        """
+        Plot the history for a specific variable (and component).
+
+        Args:
+            var (Variable): Variable
+            comp (int, optional): Variable component (between 0 and var.size-1). Defaults to 0.
+            show_lb (bool, optional): Whether to plot the lower bound. Defaults to False.
+            show_ub (bool, optional): Whether to plot the upper bound. Defaults to False.
+            y_label (str, optional): Plot y-axis label. If None, defaults to variable name.
+            title (str, optional): Plot title. If None, defaults to variable name.
+            show (bool, optional): Whether to show the plot. Defaults to True.
+            save (bool, optional): Whether to save the plot. Defaults to False.
+            filename (str, optional): Where to save the plot. If None, defaults to the name of the optimization problem.
+        """
+        if not self.history:
+            return
+
+        if var not in self.input_vars + self.output_vars:
+            raise ValueError(
+                f"Variable {var.name} not found in optimization problem {self.name}")
+
+        if comp < 0 or comp >= var.size:
+            raise IndexError(
+                f"Component {comp} for variable {var.name} is either < 0 or >= variable size ({var.size})")
+
+        fig, ax = plt.subplots(1, 1)
+
+        ax.plot([i for i in range(len(self.history))],
+                [entry[var.name][comp] for entry in self.history], '-o', color='blue')
+
+        if show_lb:
+            ax.hlines([var.lb], xmin=-1,
+                      xmax=len(self.history), colors=['red'])
+
+        if show_ub:
+            ax.hlines([var.ub], xmin=-1,
+                      xmax=len(self.history), colors=['red'])
+
+        ax.grid()
+        ax.set_xlim(-1, len(self.history))
+        ax.set_xlabel("Iteration No.")
+
+        if y_label is None:
+            y_label = var.name
+        ax.set_ylabel(y_label)
+
+        if title is None:
+            title = f"{var.name} history"
+        ax.set_title(title)
+
+        if save:
+            if filename is None:
+                filename = var.name
+            plt.savefig(fname=filename)
+
+        if show:
+            plt.show()
+
     def plot_objective_history(self, show: bool = True, save: bool = False, filename: str = None) -> None:
         """
         Plot the objective history.
@@ -143,22 +205,26 @@ class OptProblem(Discipline):
             save (bool, optional): Whether to save the plot. Defaults to False.
             filename (str, optional): Where to save the plot. If None, defaults to the name of the optimization problem.
         """
-        if not self.history:
-            return
+        self.plot_variable_history(self.objective,
+                                   y_label="Objective",
+                                   title=f"{self.name} objective history",
+                                   show=show, save=save, filename=filename)
+        # if not self.history:
+        #     return
 
-        # Create the plot
-        fig, ax = plt.subplots(1, 1)
-        ax.plot([i for i in range(len(self.history))],
-                [self.history[i][self.objective.name] for i in range(len(self.history))], '-o', color="blue")
-        ax.set_title(f"{self.name} objective history")
-        ax.set_ylabel(f"Objective")
-        ax.set_xlabel("Iteration No.")
-        ax.grid()
+        # # Create the plot
+        # fig, ax = plt.subplots(1, 1)
+        # ax.plot([i for i in range(len(self.history))],
+        #         [self.history[i][self.objective.name] for i in range(len(self.history))], '-o', color="blue")
+        # ax.set_title(f"{self.name} objective history")
+        # ax.set_ylabel(f"Objective")
+        # ax.set_xlabel("Iteration No.")
+        # ax.grid()
 
-        # Save/show
-        if save:
-            if filename is None:
-                filename = self.name
-            plt.savefig(fname=filename)
-        if show:
-            plt.show()
+        # # Save/show
+        # if save:
+        #     if filename is None:
+        #         filename = self.name
+        #     plt.savefig(fname=filename)
+        # if show:
+        #     plt.show()
