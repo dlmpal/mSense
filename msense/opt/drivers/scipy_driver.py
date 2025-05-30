@@ -54,7 +54,14 @@ class ScipyDriver(Driver):
                                            [con], con_jac)
                 return con_jac
 
-            return constraint, jacobian
+            # This is needed because regardless of whether the method
+            # requires gradients, the provided constraint jacobian func
+            # will be called, so it should not be provided
+            if self.method in ["Powell", "Nelder-Mead",
+                               "COBYLA", "COBYQA"]:
+                return constraint, '2-point'
+            else:
+                return constraint, jacobian
 
         constraints = []
         for con in self.disc.output_vars[1:]:
