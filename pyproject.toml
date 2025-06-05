@@ -1,7 +1,24 @@
 [build-system]
-
-requires = [
-    "setuptools"
-]
-
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "msense"
+version = "0.0.1"
+authors = [{ name = "Dimitris Pallas", email = "mc19054@mail.ntua.gr" }]
+license = {file = "LICENSE.txt"}
+
+description = "A lightweight framework for Multidisciplinary Analysis and Optimization (MDAO)"
+readme = "README.md"
+keywords = ["Optimization", 
+            "Multidisciplinary Optimization"]
+
+requires-python = ">=3.8"
+classifiers = ["Programming Language :: Python :: 3",
+               "Operating System :: OS Independent"]
+dependencies = ["numpy",
+                "scipy",
+                "matplotlib"]
+
+[project.urls]
+Repository = "https://github.com/dlmpal/mSense.git"
