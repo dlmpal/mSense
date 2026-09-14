@@ -1,7 +1,5 @@
 """
 Minimize y = x1^2 + x2^2 subject to g = x1 + x2 >= 10.
-
-Demonstrates the formulation surface and swapping drivers underneath it.
 """
 from pathlib import Path
 
@@ -45,14 +43,8 @@ prob = create_opt_problem(type="single_discipline",
                           cache_policy=CachePolicy.FULL,
                           cache_path=str(CACHE_DIR / "problem_cache.json"))
 
-# A gradient method, since this discipline provides analytic partials.
-# Swap in method="COBYLA" for a gradient-free run, or
-# create_driver(prob, type="pymoo_driver", algorithm="GA", pop_size=20)
-# for a population-based one; nothing else in this script changes.
 prob.driver = create_driver(prob, method="SLSQP", n_iter_max=100, tol=1e-9)
 
-# Both caches persist across runs, so a second run of this script resolves
-# every design vector it revisits without calling the discipline again.
 parabola.load_cache(), prob.load_cache()
 
 result = prob.solve({"x1": np.array([50.0]), "x2": np.array([50.0])})
@@ -60,9 +52,9 @@ result = prob.solve({"x1": np.array([50.0]), "x2": np.array([50.0])})
 print(f"converged: {result.converged} ({result.message})")
 print(f"x1 = {result['x1'][0]:.6f}, x2 = {result['x2'][0]:.6f}")
 print(f"y  = {result['y'][0]:.6f}, g = {result['g'][0]:.6f}")
-print(f"iterations: {result.n_iter}, "
-      f"discipline evaluations this run: {parabola.n_eval} "
-      f"(the rest came from the cache)")
+print(f"driver iterations: {result.n_iter}, "
+      f"discipline evaluations: {parabola.n_eval} "
+      f"(the rest came from the cache!)")
 
 prob.plot_objective_history()
 

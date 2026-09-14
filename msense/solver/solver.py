@@ -161,7 +161,7 @@ class Solver(ABC):
                 f"{self.name} has converged in {self.iter} iterations.")
         else:
             metric = self.history[-1]
-            logger.warn(
+            logger.warning(
                 f"{self.name} has reached the maximum number of iterations: ({self.n_iter_max}), "
                 + f"but the residual: ({metric}), is above tolerance: ({self.tol})")
 

@@ -1,13 +1,15 @@
 """
-NOT YET PORTED to the stateless Discipline.
+The Multidisciplinary Feasible (MDF) formulation.
 
-This formulation pushes design variables into each discipline's default inputs,
-calls the solver with no arguments, then collects results from each discipline's
-leftover values. Evaluation no longer leaves values on the instance, so the
-push/pull sequence no longer works. See docs/optimisation-framework-plan.md,
-stage 11. create_opt_problem raises NotImplementedError for this type.
+The design variables are pushed into the disciplines' default inputs, the MDA
+solver drives the coupling variables to consistency, and the objective and
+constraints are read back. Because that push/solve/pull sequence mutates the
+disciplines, an MDF problem is **not safe to evaluate concurrently** -- do not
+give it to a driver using a parallel eval_batch.
 """
-from typing import List
+from typing import Dict, List, Mapping
+
+from numpy import ndarray
 
 from msense.core.discipline import Discipline
 from msense.solver.solver import Solver
@@ -26,29 +28,32 @@ class MDF(OptProblem):
         self.assembler = JacobianAssembler()
         super().__init__(**kwargs)
 
-    def _eval(self):
-        # Update the disciplinary inputs by the values
-        # provided by optimizer
+    def _eval(self, inputs: Mapping[str, ndarray]) -> Dict[str, ndarray]:
+        # Update the disciplinary inputs by the values provided by driver
         for disc in self.disciplines:
-            disc.add_default_inputs(self._values)
+            disc.add_default_inputs(inputs)
 
         # Solve the system
-        self.solver.solve()
+        couplings = self.solver.solve()
 
-        # Grab the values of the constraints and the objective
+        # Grab the values of the constraints and the objective(s)
         # from the disciplinary outputs
-        disc_outputs = {}
+        outputs = {}
         for disc in self.disciplines:
-            disc_outputs.update(disc.get_output_values())
-        for var in self.output_vars:
-            self._values[var.name] = disc_outputs[var.name]
+            disc.add_default_inputs(couplings)
+            outputs |= disc.eval()
 
-    def _differentiate(self) -> None:
+        return outputs
+
+    def _differentiate(self, inputs: Mapping[str, ndarray],
+                       outputs: Mapping[str, ndarray]) -> Dict[str, Dict[str, ndarray]]:
+        self._eval(inputs)
+
         # Evaluate the discipline partials
         disc_partials = {}
         for disc in self.disciplines:
             disc_partials.update(disc.differentiate())
 
         # Assemble the total (coupled) derivatives
-        self._jac = self.assembler.assemble_total(
+        return self.assembler.assemble_total(
             self.input_vars, self.output_vars, self.solver.coupling_vars, disc_partials)

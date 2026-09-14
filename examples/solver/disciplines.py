@@ -51,8 +51,8 @@ class SimpleDisc(Discipline):
         super().__init__(name, input_vars, output_vars,
                          cache_policy=CachePolicy.FULL, cache_type=CacheType.MEMORY)
 
-    def _eval(self) -> None:
-        self._values.update(self.func(self._values))
+    def _eval(self, inputs) -> None:
+        return self.func(inputs)
 
-    def _differentiate(self) -> None:
-        self._jac.update(self.dfunc(self._values))
+    def _differentiate(self, inputs, outputs) -> None:
+        return self.dfunc(inputs)

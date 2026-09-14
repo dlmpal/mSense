@@ -14,7 +14,7 @@ disc1.add_default_inputs(values)
 disc2 = SimpleDisc("D2", [x2, z, y21], [y12], func2, dfunc2)
 disc2.add_default_inputs(values)
 
-solver = create_solver([disc1, disc2], "NewtonRaphson")
+solver = create_solver([disc1, disc2], SolverType.NEWTON_RAPHSON)
 solver.solve(values)
 solver.plot_convergence_history()
 print(disc1.n_eval, disc2.n_eval, disc1.n_diff, disc2.n_diff)

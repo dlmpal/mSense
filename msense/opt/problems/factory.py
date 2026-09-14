@@ -8,6 +8,7 @@ from msense.opt.drivers.driver import Driver
 from msense.opt.formulation import Objective, Constraint
 from msense.opt.problems.opt_problem import OptProblem
 from msense.opt.problems.single_discipline import SingleDiscipline
+from msense.opt.problems.mdf import MDF
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ class OptProblemType(str, Enum):
 #: Discipline, in which evaluation left its values on the instance for the
 #: caller to collect. They are kept in the tree but are not usable until they
 #: are ported; see docs/optimisation-framework-plan.md, stage 11.
-NOT_YET_PORTED = (OptProblemType.MDF, OptProblemType.IDF, OptProblemType.CO)
+NOT_YET_PORTED = (OptProblemType.IDF, OptProblemType.CO)
 
 
 def create_opt_problem(type: OptProblemType, disciplines: List[Discipline],
@@ -63,6 +64,8 @@ def create_opt_problem(type: OptProblemType, disciplines: List[Discipline],
 
     if type == OptProblemType.SINGLE_DISCIPLINE:
         return SingleDiscipline(disciplines[0], **kwargs)
+    elif type == OptProblemType.MDF:
+        return MDF(disciplines, **kwargs)
 
     if type in NOT_YET_PORTED:
         raise NotImplementedError(

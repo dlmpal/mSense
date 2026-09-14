@@ -7,104 +7,95 @@ class SellarDiscipline1(Discipline):
                  x1: Variable, y2: Variable,
                  y1: Variable, g1: Variable):
 
-        # Initialize the base object
         super().__init__(name="SellarDiscipline1",
                          input_vars=[z1, z2, x1, y2],
                          output_vars=[y1, g1])
 
-    def _eval(self) -> None:
-        # Get the input variable values
-        _z1 = self._values["z1"]
-        _z2 = self._values["z2"]
-        _x1 = self._values["x1"]
-        _y2 = self._values["y2"]
+    def _eval(self, inputs):
+        _z1 = inputs["z1"]
+        _z2 = inputs["z2"]
+        _x1 = inputs["x1"]
+        _y2 = inputs["y2"]
 
-        # Compute y1 and g1
-        self._values["y1"] = np.sqrt(_z1**2 + _z2 + _x1 - 0.2 * _y2)
-        self._values["g1"] = 3.16 - self._values["y1"]**2
+        _y1 = np.sqrt(_z1**2 + _z2 + _x1 - 0.2 * _y2)
 
-    def _differentiate(self) -> None:
-        # Get the input variable values
-        _z1 = self._values["z1"]
-        _z2 = self._values["z2"]
-        _x1 = self._values["x1"]
-        _y2 = self._values["y2"]
-        _y1 = self._values["y1"]
+        return {"y1":  _y1,
+                "g1": 3.16 - _y1**2}
 
-        # Compute the derivatives of y1
-        self._jac["y1"] = {"z1": _z1/_y1,
-                           "z2": 1 / (2*_y1),
-                           "x1": 1/(2*_y1),
-                           "y2": -0.2/(2*_y1)}
+    def _differentiate(self, inputs, outputs):
+        _z1 = inputs["z1"]
+        _y1 = outputs["y1"]
 
-        # Compute the derivatives of y1
-        self._jac["g1"] = {"z1": -2*_y1*self._jac["y1"]["z1"],
-                           "z2": -2*_y1*self._jac["y1"]["z2"],
-                           "x1": -2*_y1*self._jac["y1"]["x1"],
-                           "y2": -2*_y1*self._jac["y1"]["y2"]}
+        jac = {}
+
+        jac["y1"] = {"z1": _z1/_y1,
+                     "z2": 1 / (2*_y1),
+                     "x1": 1/(2*_y1),
+                     "y2": -0.2/(2*_y1)}
+
+        jac["g1"] = {"z1": -2*_y1*jac["y1"]["z1"],
+                     "z2": -2*_y1*jac["y1"]["z2"],
+                     "x1": -2*_y1*jac["y1"]["x1"],
+                     "y2": -2*_y1*jac["y1"]["y2"]}
+
+        return jac
 
 
 class SellarDiscipline2(Discipline):
     def __init__(self, z1: Variable, z2: Variable,
-                 y1: Variable, y2: Variable,
-                 g2: Variable):
+                 y1: Variable, y2: Variable, g2: Variable):
 
-        # Initialize the base object
         super().__init__(name="Disc2",
                          input_vars=[z1, z2, y1],
                          output_vars=[y2, g2])
 
-    def _eval(self) -> None:
-        # Get the input variable values
-        _z1 = self._values["z1"]
-        _z2 = self._values["z2"]
-        _y1 = self._values["y1"]
+    def _eval(self, inputs):
+        _z1 = inputs["z1"]
+        _z2 = inputs["z2"]
+        _y1 = inputs["y1"]
 
-        # Compute y2 and g2
-        self._values["y2"] = np.abs(_y1) + _z1 + _z2
-        self._values["g2"] = self._values["y2"] - 24
+        _y2 = np.abs(_y1) + _z1 + _z2
 
-    def _differentiate(self) -> None:
-        # Get the input variable values
-        _z1 = self._values["z1"]
-        _z2 = self._values["z2"]
-        _y1 = self._values["y1"]
+        return {"y2": _y2,
+                "g2": _y2 - 24}
 
-        # Compute the derivatives of y2 and g2
-        self._jac["y2"] = {"y1": np.sign(_y1), "z1": 1.0, "z2": 1.0}
-        self._jac["g2"] = {"y1": np.sign(_y1), "z1": 1.0, "z2": 1.0}
+    def _differentiate(self, inputs, outputs):
+        _y1 = inputs["y1"]
+
+        jac = {}
+        jac["y2"] = {"y1": np.sign(_y1), "z1": 1.0, "z2": 1.0}
+        jac["g2"] = {"y1": np.sign(_y1), "z1": 1.0, "z2": 1.0}
+
+        return jac
 
 
 class SellarObjective(Discipline):
     def __init__(self, x1: Variable, z2: Variable,
-                 y1: Variable, y2: Variable,
-                 f: Variable):
+                 y1: Variable, y2: Variable, f: Variable):
 
-        # Initialize the base object
         super().__init__("Objective", [x1, z2, y1, y2], [f])
 
-    def _eval(self) -> None:
+    def _eval(self, inputs):
         # Get the input variable values
-        _x1 = self._values["x1"]
-        _z2 = self._values["z2"]
-        _y1 = self._values["y1"]
-        _y2 = self._values["y2"]
+        _x1 = inputs["x1"]
+        _z2 = inputs["z2"]
+        _y1 = inputs["y1"]
+        _y2 = inputs["y2"]
 
-        # Compute f
-        self._values["f"] = _x1**2 + _z2 + _y1**2 + np.exp(-_y2)
+        return {"f": _x1**2 + _z2 + _y1**2 + np.exp(-_y2)}
 
-    def _differentiate(self) -> None:
-        # Get the input variable values
-        _x1 = self._values["x1"]
-        _z2 = self._values["z2"]
-        _y1 = self._values["y1"]
-        _y2 = self._values["y2"]
+    def _differentiate(self, inputs, outputs):
+        _x1 = inputs["x1"]
+        _y1 = inputs["y1"]
+        _y2 = inputs["y2"]
 
-        # Compute the derivatives of f
-        self._jac["f"]["x1"] = 2*_x1
-        self._jac["f"]["z2"] = 1.0
-        self._jac["f"]["y1"] = 2 * _y1
-        self._jac["f"]["y2"] = -np.exp(-_y2)
+        jac = {"f": {}}
+        jac["f"]["x1"] = 2*_x1
+        jac["f"]["z2"] = 1.0
+        jac["f"]["y1"] = 2 * _y1
+        jac["f"]["y2"] = -np.exp(-_y2)
+
+        return jac
 
 
 # Design variables

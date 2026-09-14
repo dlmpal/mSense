@@ -227,7 +227,11 @@ def test_at_least_one_objective_is_required():
 
 
 def test_deferred_formulations_are_reported_clearly():
+    """
+    MDF is ported; IDF and CO are not. See tests/test_mdf.py.
+    """
     from msense.api import create_opt_problem
 
-    with pytest.raises(NotImplementedError, match="stateless"):
-        create_opt_problem("mdf", [], [], objectives=[])
+    for formulation in ("idf", "co"):
+        with pytest.raises(NotImplementedError, match="stateless"):
+            create_opt_problem(formulation, [], [], objectives=[])

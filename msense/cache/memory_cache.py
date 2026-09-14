@@ -77,7 +77,7 @@ class MemoryCache(Cache):
 
     def from_file(self):
         if not exists(self.path):
-            logger.warn(
+            logger.warning(
                 f"MemoryCache cannot be loaded from file. File: {self.path} does not exist.")
             return
 

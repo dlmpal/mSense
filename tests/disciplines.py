@@ -83,3 +83,100 @@ def make_problem(disc=None, objectives=None, constraints=None, **kwargs):
                                     objectives=objectives,
                                     constraints=constraints,
                                     name="ParabolaOpt", **kwargs)
+
+
+#
+# Coupled systems, for the MDA solvers
+#
+
+y1 = Variable("y1")
+y2 = Variable("y2")
+
+
+class LinearCoupling1(Discipline):
+    """
+    y1 = a - b*y2.
+
+    Paired with LinearCoupling2 this has the exact fixed point
+    y1 = (a - b*c)/(1 + b*d), y2 = c + d*y1, which a Newton step reaches
+    in one iteration because the system is linear.
+    """
+
+    def __init__(self, a: float = 3.0, b: float = 0.2):
+        self.a, self.b = a, b
+        super().__init__("Linear1", [y2], [y1], cache_type=None)
+
+    def _eval(self, inputs):
+        return {"y1": self.a - self.b * inputs["y2"]}
+
+    def _differentiate(self, inputs, outputs):
+        return {"y1": {"y2": np.atleast_2d(-self.b)}}
+
+
+class LinearCoupling2(Discipline):
+    """
+    y2 = c + d*y1.
+    """
+
+    def __init__(self, c: float = 2.0, d: float = 0.5):
+        self.c, self.d = c, d
+        super().__init__("Linear2", [y1], [y2], cache_type=None)
+
+    def _eval(self, inputs):
+        return {"y2": self.c + self.d * inputs["y1"]}
+
+    def _differentiate(self, inputs, outputs):
+        return {"y2": {"y1": np.atleast_2d(self.d)}}
+
+
+def linear_coupling_solution(a=3.0, b=0.2, c=2.0, d=0.5):
+    """
+    The exact fixed point of the linear pair above.
+    """
+    y1_star = (a - b * c) / (1.0 + b * d)
+    return y1_star, c + d * y1_star
+
+
+class SellarCoupling1(Discipline):
+    """
+    y1 = z1^2 + z2 + x1 - 0.2*y2, the first Sellar coupling.
+    """
+
+    def __init__(self, z1=1.0, z2=1.0, x1=1.0):
+        self.z1, self.z2, self.x1 = z1, z2, x1
+        super().__init__("Sellar1", [y2], [y1], cache_type=None)
+
+    def _eval(self, inputs):
+        return {"y1": self.z1**2 + self.z2 + self.x1 - 0.2 * inputs["y2"]}
+
+    def _differentiate(self, inputs, outputs):
+        return {"y1": {"y2": np.atleast_2d(-0.2)}}
+
+
+class SellarCoupling2(Discipline):
+    """
+    y2 = sqrt(y1) + z1 + z2, the second Sellar coupling.
+    """
+
+    def __init__(self, z1=1.0, z2=1.0):
+        self.z1, self.z2 = z1, z2
+        super().__init__("Sellar2", [y1], [y2], cache_type=None)
+
+    def _eval(self, inputs):
+        return {"y2": np.sqrt(np.abs(inputs["y1"])) + self.z1 + self.z2}
+
+    def _differentiate(self, inputs, outputs):
+        return {"y2": {"y1": np.atleast_2d(
+            0.5 / np.sqrt(np.abs(inputs["y1"])))}}
+
+
+def sellar_coupling_solution(z1=1.0, z2=1.0, x1=1.0):
+    """
+    The exact fixed point of the Sellar pair.
+
+    Substituting gives u^2 + 0.2u - (z1^2 + z2 + x1 - 0.2(z1+z2)) = 0 with
+    u = sqrt(y1); the positive root is taken.
+    """
+    k = z1**2 + z2 + x1 - 0.2 * (z1 + z2)
+    u = 0.5 * (-0.2 + np.sqrt(0.04 + 4.0 * k))
+    return u**2, u + z1 + z2
