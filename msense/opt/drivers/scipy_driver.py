@@ -1,119 +1,117 @@
-from typing import Dict, Tuple
+from typing import Dict, List, Mapping
 
 from numpy import ndarray
 from scipy.optimize import NonlinearConstraint, Bounds, minimize
 
-from msense.core.variable import Variable
-from msense.core.discipline import Discipline
-from msense.utils.array_and_dict_utils import concatenate_variable_bounds
-from msense.utils.array_and_dict_utils import array_to_dict_1d, dict_to_array_1d
-from msense.utils.array_and_dict_utils import normalize_dict_1d, denormalize_dict_1d
-from msense.utils.array_and_dict_utils import array_to_dict_2d, dict_to_array_2d, denormalize_dict_2d
-from msense.opt.drivers.driver import Driver
+from msense.opt.formulation import Constraint
+from msense.utils.array_and_dict_utils import dict_to_array_2d
+from msense.opt.drivers.driver import Driver, DriverResult
+
+#: SciPy methods that do not use gradients, and so must not be handed a jacobian.
+GRADIENT_FREE_METHODS = ("Powell", "Nelder-Mead", "COBYLA", "COBYQA")
 
 
 class ScipyDriver(Driver):
     """
-    This Driver subclass implements the functionality needed to solve an OptProblem using SciPy optimizers.
+    This Driver subclass implements the functionality needed to solve an OptProblem
+    using SciPy optimizers.
     """
 
-    def __init__(self, problem: Discipline, method="SLSQP", **kwargs):
+    supports_multi_objective = False
+    supports_nonlinear_constraints = True
+    supports_equality_constraints = True
+
+    def __init__(self, problem, method: str = "SLSQP", **kwargs):
         super().__init__(problem, **kwargs)
         self.method = method
-        self.options = {}
+
+        # The values at the most recent iterate, for the history
+        self._latest: Dict[str, ndarray] = None
+
+    @property
+    def requires_gradients(self) -> bool:
+        return self.method not in GRADIENT_FREE_METHODS
 
     def _wrap_objective(self):
         def func(x: ndarray) -> float:
-            x = array_to_dict_1d(self.disc.input_vars, x)
-            obj_value = self.disc.eval(x)[self.disc.output_vars[0].name]
+            values = self.evaluate(x)
+            self._latest = {**self.design_dict(x), **values}
             if self.iter == 0:
-                self._callback()
-            return obj_value
+                self._callback(values=self._latest)
+            return self.prob.scalar_objective(values)
         return func
 
     def _wrap_gradient(self):
         def gradient(x: ndarray) -> ndarray:
-            x = array_to_dict_1d(self.disc.input_vars, x)
-            grad = self.disc.differentiate(x)
-            grad = dict_to_array_2d(self.disc.input_vars,
-                                    [self.disc.output_vars[0]], grad, flatten=True)
-            return grad
+            return self.prob.scalar_objective_jac(self.differentiate(x))
         return gradient
 
-    def _wrap_constraints(self, use_norm: bool) -> NonlinearConstraint:
-        def wrap_single_constraint(con: Variable):
+    def _wrap_constraints(self) -> List[NonlinearConstraint]:
+        def wrap_single_constraint(con: Constraint):
             def constraint(x: ndarray) -> ndarray:
-                x = array_to_dict_1d(self.disc.input_vars, x)
-                con_value = self.disc.eval(x)[con.name]
-                return con_value
+                return self.evaluate(x)[con.name]
 
             def jacobian(x: ndarray) -> ndarray:
-                x = array_to_dict_1d(self.disc.input_vars, x)
-                con_jac = self.disc.differentiate(x)
-                con_jac = dict_to_array_2d(self.disc.input_vars,
-                                           [con], con_jac)
-                return con_jac
+                return dict_to_array_2d(self.prob.design_vars, [con.var],
+                                        self.differentiate(x))
 
-            # This is needed because regardless of whether the method
-            # requires gradients, the provided constraint jacobian func
-            # will be called, so it should not be provided
-            if self.method in ["Powell", "Nelder-Mead",
-                               "COBYLA", "COBYQA"]:
-                return constraint, '2-point'
-            else:
+            # Regardless of whether the method uses gradients, the provided
+            # constraint jacobian is called, so it must not be provided for the
+            # gradient-free methods.
+            if self.requires_gradients:
                 return constraint, jacobian
+            else:
+                return constraint, '2-point'
 
         constraints = []
-        for con in self.disc.output_vars[1:]:
-            constraint, jacobian = wrap_single_constraint(con)
-            cl, cu, kf = con.get_bounds_as_array(use_norm)
-            constraints.append(NonlinearConstraint(
-                constraint, cl, cu, jacobian, keep_feasible=kf[0]))
+        for con in self.prob.constraints:
+            func, jac = wrap_single_constraint(con)
+            # SciPy takes the two-sided constraint form directly, so the bounds
+            # of the constraint variable are used as they are.
+            cl, cu, kf = con.var.get_bounds_as_array(use_normalization=False)
+            constraints.append(NonlinearConstraint(func, cl, cu, jac, keep_feasible=kf[0]))
         return constraints
 
     def _wrap_callback(self):
         if self.method == "trust-constr":
             def callback(x, result):
-                self._callback()
+                self._callback(values=self._latest)
             return callback
         elif self.method in ["TNC", "SLSQP", "COBYLA"]:
             def callback(x):
-                self._callback()
+                self._callback(values=self._latest)
             return callback
         else:
             def callback(result):
-                self._callback()
+                self._callback(values=self._latest)
             return callback
 
-    def _wrap_bounds(self, use_norm):
-        lb, ub, kf = concatenate_variable_bounds(
-            self.disc.input_vars, use_norm)
-        return Bounds(lb, ub, kf)
+    def _wrap_bounds(self, use_norm: bool) -> Bounds:
+        xl, xu = self.prob.design_bounds(use_norm)
+        return Bounds(xl, xu)
 
-    def solve(self, input_values: Dict[str, ndarray], use_norm: bool) -> Tuple[bool, str]:
-        # Normalize the input values if needed,
-        # and covert to 1d numpy array
-        if use_norm:
-            input_values = normalize_dict_1d(
-                self.disc.input_vars, input_values)
-        input_values = dict_to_array_1d(
-            self.disc.input_vars, input_values)
+    def solve(self, x0: Mapping[str, ndarray], use_norm: bool) -> DriverResult:
 
-        # Reset the iteration number
+        # Convert from dict to array and normalize
+        x0 = self.starting_array(x0)
+
+        # Reset iteration counter
         self.iter = 0
 
-        # Solve the optimization problem using SciPy
         self.options["maxiter"] = self.n_iter_max
         result = minimize(fun=self._wrap_objective(),
-                          x0=input_values,
-                          jac=self._wrap_gradient(),
+                          x0=x0,
+                          jac=self._wrap_gradient() if self.requires_gradients else None,
                           bounds=self._wrap_bounds(use_norm),
-                          constraints=self._wrap_constraints(use_norm),
+                          constraints=self._wrap_constraints(),
                           callback=self._wrap_callback(),
                           method=self.method, tol=self.tol,
                           options=self.options)
 
-        # Driver convergence and related message
-        converged, message = result["success"], result["message"]
-
-        return converged, message
+        x = result["x"]
+        return DriverResult(converged=bool(result["success"]),
+                            message=str(result["message"]),
+                            x=self.design_dict(x),
+                            values=self.evaluate(x),
+                            n_eval=self.prob.n_eval,
+                            n_iter=self.iter)

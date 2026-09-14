@@ -1,3 +1,12 @@
+"""
+NOT YET PORTED to the stateless Discipline.
+
+This formulation pushes design variables into each discipline's default inputs,
+calls the solver with no arguments, then collects results from each discipline's
+leftover values. Evaluation no longer leaves values on the instance, so the
+push/pull sequence no longer works. See docs/optimisation-framework-plan.md,
+stage 11. create_opt_problem raises NotImplementedError for this type.
+"""
 from typing import List
 
 from msense.core.discipline import Discipline

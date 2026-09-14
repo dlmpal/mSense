@@ -20,5 +20,10 @@ dependencies = ["numpy",
                 "scipy",
                 "matplotlib"]
 
+[project.optional-dependencies]
+ipopt = ["cyipopt"]
+pymoo = ["pymoo>=0.6"]
+all = ["cyipopt", "pymoo>=0.6"]
+
 [project.urls]
 Repository = "https://github.com/dlmpal/mSense.git"
