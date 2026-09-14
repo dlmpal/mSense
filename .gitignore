@@ -2,7 +2,7 @@ build/
 dist/
 msense.egg-info/
 doc/
-tests/
+notes.md
 
 *.json
 *.hdf5
