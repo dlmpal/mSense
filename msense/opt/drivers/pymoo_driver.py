@@ -23,6 +23,8 @@ try:
     from pymoo.util.ref_dirs import get_reference_directions
 except ImportError:
     MSENSE_HAS_PYMOO = False
+    PymooProblem = object
+    PymooCallback = object
 
 logger = logging.getLogger(__name__)
 
