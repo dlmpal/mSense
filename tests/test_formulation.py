@@ -96,3 +96,34 @@ def test_equality_residual():
     con = Constraint(Variable("c", lb=1.0, ub=1.0))
     assert con.residuals(np.array([1.5]))[0] == 0.5
     assert con.residuals(np.array([1.0]))[0] == 0.0
+
+
+#
+# Normalized residuals: each row divided by the magnitude of its bound
+#
+
+def test_normalized_residuals_are_relative_to_the_bound():
+    con = Constraint(Variable("c", lb=10.0))
+    assert np.allclose(con.residuals(np.array([9.0]), normalized=True), [0.1])
+    assert np.allclose(con.residuals(np.array([9.0])), [1.0])
+
+
+def test_normalized_residuals_keep_their_sign_for_a_negative_bound():
+    # A lower coil's zone edge: Z_max <= -0.5
+    con = Constraint(Variable("z", ub=-0.5))
+    assert con.residuals(np.array([-0.6]), normalized=True)[0] < 0      # inside: satisfied
+    assert np.allclose(con.residuals(np.array([-0.4]), normalized=True), [0.2])
+    con = Constraint(Variable("z", lb=-0.5))
+    assert np.allclose(con.residuals(np.array([-0.6]), normalized=True), [0.2])
+
+
+def test_a_zero_bound_is_left_unscaled():
+    con = Constraint(Variable("c", lb=0.0, ub=4.0))
+    assert np.allclose(con.residuals(np.array([-1.0]), normalized=True), [1.0, -1.25])
+
+
+def test_constraint_scale():
+    assert Constraint(Variable("c", lb=-20.0, ub=5.0)).scale() == 20.0
+    assert Constraint(Variable("c", lb=0.0)).scale() == 1.0
+    assert Constraint(Variable("c", ub=-3.0)).scale() == 3.0
+    assert Constraint(Variable("c", ub=-3.0)).scale(normalized=False) == 1.0

@@ -2,7 +2,7 @@ from typing import Dict, List, Mapping, Sequence
 
 from numpy import ndarray
 
-from msense.core.discipline import BatchOutcome, Discipline
+from msense.core.discipline import EvaluationOutcome, Discipline
 from msense.opt.problems.opt_problem import OptProblem
 
 
@@ -18,7 +18,7 @@ class SingleDiscipline(OptProblem):
     def _eval(self, inputs: Mapping[str, ndarray]) -> Dict[str, ndarray]:
         return self.disc.eval(inputs)
 
-    def _eval_batch(self, input_rows: Sequence[Mapping[str, ndarray]]) -> List[BatchOutcome]:
+    def _eval_batch(self, input_rows: Sequence[Mapping[str, ndarray]]) -> List[EvaluationOutcome]:
         """
         Hand the whole batch to the discipline, so that a discipline able to
         dispatch its evaluations concurrently gets the chance to.

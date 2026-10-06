@@ -19,7 +19,7 @@ from msense.utils.jac_utils import initialize_dense_jac
 logger = logging.getLogger(__name__)
 
 #: What one row of a batch computation yields: the outputs, or the failure.
-BatchOutcome = Union[Dict[str, ndarray], EvaluationFailure]
+EvaluationOutcome = Union[Dict[str, ndarray], EvaluationFailure]
 
 
 class Discipline:
@@ -169,7 +169,7 @@ class Discipline:
             values |= copy_dict_1d(self.input_vars, input_values)
         return verify_dict_1d(self.input_vars, values, self._resolve_dtype(values))
 
-    def _record_outputs(self, inputs: Dict[str, ndarray], outcome: BatchOutcome,
+    def _record_outputs(self, inputs: Dict[str, ndarray], outcome: EvaluationOutcome,
                         tolerate_failure: bool, use_cache: bool, dtype=FLOAT_DTYPE) -> Dict[str, ndarray]:
         """
         Turn one computed outcome into verified outputs: count it, cache it, and
@@ -242,7 +242,7 @@ class Discipline:
 
         return self._record_outputs(inputs, outcome, tolerate_failure, use_cache, dtype)
 
-    def _eval_batch(self, input_rows: Sequence[Mapping[str, ndarray]]) -> List[BatchOutcome]:
+    def _eval_batch(self, input_rows: Sequence[Mapping[str, ndarray]]) -> List[EvaluationOutcome]:
         """
         Compute the output values for several sets of input values.
 

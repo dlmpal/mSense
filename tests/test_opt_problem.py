@@ -111,6 +111,15 @@ def test_failed_constraint_is_a_large_violation():
     assert gr[0] == prob.failed_constraint_violation > 0
 
 
+def test_residuals_are_normalized_with_the_problem():
+    # g >= 10: with normalization the residual is relative to the bound
+    values = {"y": np.array([1.0]), "g": np.array([9.0])}
+    _, prob = make_problem(constraints=[Constraint(g)])
+    assert prob.use_norm and np.allclose(prob.constraint_residuals(values)[0], [0.1])
+    _, prob = make_problem(constraints=[Constraint(g)], use_norm=False)
+    assert np.allclose(prob.constraint_residuals(values)[0], [1.0])
+
+
 def test_is_feasible():
     _, prob = make_problem(constraints=[Constraint(g)])
     assert prob.is_feasible({"y": np.array([1.0]), "g": np.array([11.0])})

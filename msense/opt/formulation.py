@@ -107,12 +107,25 @@ class Constraint:
         return self.var.size * ((1 if self.has_lb else 0) +
                                 (1 if self.has_ub else 0))
 
-    def residuals(self, value: ndarray) -> ndarray:
+    def scale(self, normalized: bool = True) -> float:
+        """
+        One divisor for the whole constraint, for drivers that take its value and
+        both bounds at once (two-sided form): the larger magnitude of its finite,
+        non-zero bounds, or 1.
+        """
+        bounds = [abs(float(b)) for has, b in ((self.has_lb, self.var.lb), (self.has_ub, self.var.ub))
+                  if has and b != 0.0]
+        return max(bounds) if normalized and bounds else 1.0
+
+    def residuals(self, value: ndarray, normalized: bool = False) -> ndarray:
         """
         Convert a constraint value into residual rows.
 
         Args:
             value (ndarray): The constraint value, of size var.size.
+            normalized (bool, optional): Whether to divide each inequality row by the
+                magnitude of its bound (1 for a bound of zero), so that rows of
+                constraints in different units are comparable. Defaults to False.
 
         Returns:
             ndarray: The residuals, of size n_rows. An equality is satisfied
@@ -122,10 +135,12 @@ class Constraint:
             return value - self.var.lb
 
         rows = []
-        if self.has_lb:
-            rows.append(self.var.lb - value)
-        if self.has_ub:
-            rows.append(value - self.var.ub)
+        for has, bound, sense in zip((self.has_lb, self.has_ub),
+                                     (self.var.lb, self.var.ub),
+                                     (1.0, -1.0)):
+            if has:
+                scale = abs(float(bound)) if normalized and bound != 0.0 else 1.0
+                rows.append(sense * (bound - value) / scale)
 
         return concatenate(rows)
 

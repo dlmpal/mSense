@@ -39,6 +39,29 @@ def test_slsqp_with_an_active_constraint():
     assert np.isclose(result.values["y"][0], 50.0, atol=1e-3)
 
 
+def test_constraints_are_scaled_with_normalization():
+    # g >= 10: scipy sees g / 10 >= 1 when the problem is normalized
+    for use_norm, lb in ((True, 1.0), (False, 10.0)):
+        _, prob = make_problem(constraints=[Constraint(g)], use_norm=use_norm)
+        prob.driver = create_driver(prob, method="SLSQP")
+        (con,) = prob.driver._wrap_constraints()
+        x = prob.driver.starting_array({"x1": np.array([3.0]), "x2": np.array([4.0])})
+        assert np.allclose(con.lb, lb) and np.allclose(con.fun(x), 7.0 / (10.0 / lb))
+
+
+def test_cobyla_with_an_active_constraint():
+    """
+    The scaled constraint still holds at the optimum: (5, 5), y = 50.
+    """
+    _, prob = make_problem(constraints=[Constraint(g)])
+    prob.driver = create_driver(prob, method="COBYLA", n_iter_max=500, tol=1e-8)
+
+    result = prob.solve({"x1": np.array([50.0]), "x2": np.array([50.0])})
+
+    assert np.isclose(result.values["g"][0], 10.0, atol=1e-3), result.values
+    assert np.isclose(result.values["y"][0], 50.0, atol=1e-2), result.values
+
+
 def test_cobyla_is_not_handed_a_jacobian():
     _, prob = make_problem(constraints=[Constraint(g)])
     prob.driver = create_driver(prob, method="COBYLA", n_iter_max=500, tol=1e-8)

@@ -47,13 +47,13 @@ class ScipyDriver(Driver):
         return gradient
 
     def _wrap_constraints(self) -> List[NonlinearConstraint]:
-        def wrap_single_constraint(con: Constraint):
+        def wrap_single_constraint(con: Constraint, scale: float):
             def constraint(x: ndarray) -> ndarray:
-                return self.evaluate(x)[con.name]
+                return self.evaluate(x)[con.name] / scale
 
             def jacobian(x: ndarray) -> ndarray:
                 return dict_to_array_2d(self.prob.design_vars, [con.var],
-                                        self.differentiate(x))
+                                        self.differentiate(x)) / scale
 
             # Regardless of whether the method uses gradients, the provided
             # constraint jacobian is called, so it must not be provided for the
@@ -65,11 +65,14 @@ class ScipyDriver(Driver):
 
         constraints = []
         for con in self.prob.constraints:
-            func, jac = wrap_single_constraint(con)
-            # SciPy takes the two-sided constraint form directly, so the bounds
-            # of the constraint variable are used as they are.
+            # SciPy takes the two-sided constraint form directly: the value and both
+            # bounds. With normalization, all three are divided by the magnitude of
+            # the bounds, so that constraints in different units weigh alike.
+            scale = con.scale(self.prob.use_norm)
+            func, jac = wrap_single_constraint(con, scale)
             cl, cu, kf = con.var.get_bounds_as_array(use_normalization=False)
-            constraints.append(NonlinearConstraint(func, cl, cu, jac, keep_feasible=kf[0]))
+            constraints.append(NonlinearConstraint(func, cl / scale, cu / scale, jac,
+                                                   keep_feasible=kf[0]))
         return constraints
 
     def _wrap_callback(self):

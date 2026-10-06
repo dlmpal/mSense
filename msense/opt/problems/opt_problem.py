@@ -175,7 +175,7 @@ class OptProblem(Discipline):
         g_rows, h_rows = [], []
         for con in self.constraints:
             rows = con.residuals(
-                atleast_1d(values[con.name]).astype(FLOAT_DTYPE))
+                atleast_1d(values[con.name]).astype(FLOAT_DTYPE), self.use_norm)
             (h_rows if con.is_equality else g_rows).append(rows)
 
         g = concatenate(g_rows) if g_rows else empty(0, FLOAT_DTYPE)
@@ -274,6 +274,7 @@ class OptProblem(Discipline):
                 self.history.append(best)
                 logger.info(f"{self.name} - Generation: {self.driver.iter} - "
                             f"Population: {len(generation)} - "
+                            f"Evaluations: {self.n_eval} - "
                             f"Best objective: {self.objective_array(best)}")
             return
 
